@@ -1,0 +1,88 @@
+<UserControl x:Class="GravityBox.App.Views.Pages.AccountsPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:GravityBox.App.Controls">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel>
+            <Grid Margin="0,0,0,14">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="账号" Style="{StaticResource PageTitleStyle}" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button Content="保存当前账号" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,8,0" Command="{Binding SaveCurrentAccountCommand}" />
+                    <Button Content="添加账号…" Style="{StaticResource PrimaryButtonStyle}" Margin="0,0,8,0" Click="OnAddAccountClick" />
+                    <Button Content="智能推荐策略" Style="{StaticResource SecondaryButtonStyle}" Click="OnPolicyClick" />
+                </StackPanel>
+            </Grid>
+
+            <!-- Rollback Banner -->
+            <Border Background="{DynamicResource AccentBlueSoftBrush}"
+                    CornerRadius="12"
+                    Padding="14,10"
+                    Margin="0,0,0,12"
+                    Visibility="{Binding HasRollbackAvailable, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="{Binding RollbackBannerText}" Foreground="{DynamicResource AccentBlueBrush}" VerticalAlignment="Center" />
+                    <Button Grid.Column="1" Content="撤销上次切换" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding RollbackSwitchCommand}" />
+                </Grid>
+            </Border>
+
+            <ItemsControl ItemsSource="{Binding Accounts}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Style="{StaticResource CardContainerStyle}" Margin="0,0,0,10">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="8" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <Grid Grid.Row="0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                        <TextBlock Text="{Binding Name}" Style="{StaticResource CardTitleStyle}" VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding Email}" Style="{StaticResource SecondaryLabelStyle}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                                        <Border Style="{StaticResource PillBadgeStyle}" Margin="8,0,0,0">
+                                            <TextBlock Text="{Binding Tier}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource AccentBlueBrush}" />
+                                        </Border>
+                                        <Border Style="{StaticResource PillBadgeStyle}" Margin="6,0,0,0"
+                                                Visibility="{Binding StandbyDeferred, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}">
+                                            <TextBlock Text="{Binding StandbyBadgeText}" FontSize="11" Foreground="{DynamicResource WarningTextBrush}" />
+                                        </Border>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                        <Button Content="刷新" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,6,0"
+                                                Command="{Binding DataContext.RefreshQuotaCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding Id}" />
+                                        <Button Content="切换" Style="{StaticResource PrimaryButtonStyle}" Margin="0,0,6,0"
+                                                Command="{Binding DataContext.SwitchAccountCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding Id}" />
+                                        <Button Content="删除" Style="{StaticResource SecondaryButtonStyle}"
+                                                Command="{Binding DataContext.DeleteAccountCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding Id}" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <controls:QuotaMeterRow Grid.Row="2"
+                                                        Title="5 小时配额"
+                                                        Percentage="{Binding FiveHourPct}"
+                                                        ResetText="{Binding ResetText}" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
