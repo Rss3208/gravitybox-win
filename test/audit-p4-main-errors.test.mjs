@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { AccountsManager } from '../dist/accounts.js';
+import { getPlatform } from '../dist/platform/index.js';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -53,14 +54,16 @@ function healthyDeps(overrides = {}) {
 // B12: accounts 失败但 usage 成功 —— 必须给出脱敏 accountsError 且保留 usage 可用数据。
 test('B12: accounts 聚合失败返回脱敏 accountsError，usage 数据保留', async () => {
   const leakedPath = '/Users/alice/Library/Application Support/GravityBox/accounts.json';
+  const leakedWinPath = 'C:\\Users\\alice\\AppData\\Local\\GravityBox\\accounts.json';
   const leakedToken = 'sk-live-abcdefghijklmnop';
   const deps = healthyDeps({
-    listAccounts: async () => { throw new Error(`读取账号索引失败 ${leakedPath} Authorization: Bearer ${leakedToken}`); },
+    listAccounts: async () => { throw new Error(`读取账号索引失败 ${leakedPath} ${leakedWinPath} Authorization: Bearer ${leakedToken}`); },
   });
   const result = await buildDashboardAggregate(deps);
   assert.equal(result.accounts, null);
   assert.ok(result.accountsError.length > 0, 'accounts 失败必须有明确错误');
   assert.equal(result.accountsError.includes('/Users/'), false, '错误不得泄漏绝对路径');
+  assert.equal(result.accountsError.includes('C:\\Users\\'), false, '错误不得泄漏 Windows 绝对路径');
   assert.equal(result.accountsError.includes('alice'), false, '错误不得泄漏用户名/路径');
   assert.equal(result.accountsError.includes('sk-live'), false, '错误不得泄漏密钥');
   assert.equal(result.accountsError.includes('Bearer sk-live'), false, '错误不得泄漏认证头');
@@ -135,12 +138,16 @@ test('B13: 聚合 accounts.activeTier 对空串/未知值回落 待确认', asyn
 });
 
 // 真实后台契约：dashboard_summary 仍 ok:true，并稳定携带 errors 字段与枚举套餐。
-function rpc(directory, payload) {
+async function rpc(directory, payload) {
+  const platform = getPlatform();
+  const endpoint = platform.getIpcEndpoint(directory);
+  const authToken = await platform.readIpcAuthToken?.(directory);
+  const body = authToken && !('authToken' in payload) ? { ...payload, authToken } : payload;
   return new Promise((resolve, reject) => {
-    const socket = createConnection(join(directory, 'control.sock'));
+    const socket = createConnection(endpoint);
     const chunks = [];
     socket.setTimeout(8000, () => { socket.destroy(); reject(new Error('IPC 超时')); });
-    socket.on('connect', () => socket.write(JSON.stringify(payload) + '\n'));
+    socket.on('connect', () => socket.write(JSON.stringify(body) + '\n'));
     socket.on('error', reject);
     socket.on('data', chunk => {
       chunks.push(chunk);
@@ -208,6 +215,28 @@ test('B12/B13: 真实后台 dashboard_summary 返回可读错误字段与枚举�
       assert.ok(TIERS.includes(account.subscription_tier), `账号套餐必须是枚举值，实际 ${account.subscription_tier}`);
       if (account.quota) assert.ok(TIERS.includes(account.quota.subscription_tier));
     }
+
+    // T-014: 验证 platform_info、shortcut_scan、shortcut_apply/restore 确认门禁与 account_switch_preflight
+    const pInfo = await rpc(directory, { command: 'platform_info' });
+    assert.equal(pInfo.ok, true);
+    assert.equal(pInfo.platform, process.platform === 'win32' ? 'win32' : 'darwin');
+    assert.equal(pInfo.defaultLanguage, 'zh-Hans');
+    assert.equal(pInfo.shortcutSupport, process.platform === 'win32');
+
+    const sScan = await rpc(directory, { command: 'shortcut_scan' });
+    assert.equal(sScan.ok, true);
+    assert.ok(Array.isArray(sScan.shortcuts));
+
+    const sApplyUnconfirmed = await rpc(directory, { command: 'shortcut_apply', confirmed: false });
+    assert.equal(sApplyUnconfirmed.ok, false);
+
+    const sRestoreUnconfirmed = await rpc(directory, { command: 'shortcut_restore', confirmed: false });
+    assert.equal(sRestoreUnconfirmed.ok, false);
+
+    const preflight = await rpc(directory, { command: 'account_switch_preflight' });
+    assert.equal(preflight.ok, true);
+    assert.equal(typeof preflight.appRunning, 'boolean');
+    assert.equal(typeof preflight.insidersRunning, 'boolean');
 
     assert.equal((await rpc(directory, { command: 'stop' })).ok, true);
     await closed;

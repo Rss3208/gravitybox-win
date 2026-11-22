@@ -62,7 +62,11 @@ function sanitizeErrorMessage(err: unknown): string {
   if (!(err instanceof Error)) return bt('common.action_incomplete');
   const msg = err.message || '';
   const redacted = sanitizeError(msg);
-  const sanitized = redacted.replace(/\/(?:Users|private|var|tmp|Volumes)\/[^\s'"]+/g, bt('common.path_token'));
+  const pathToken = bt('common.path_token');
+  const sanitized = getPlatform()
+    .sanitizeHostPaths(redacted)
+    .replaceAll('<path>', pathToken)
+    .replace(/\/(?:Users|private|var|tmp|Volumes)\/[^\s'"]+/g, pathToken);
   return sanitized.slice(0, 200);
 }
 
@@ -1110,6 +1114,42 @@ async function run() {
         })().catch(error => reply({ ok: false, error: sanitizeErrorMessage(error) }));
         return;
       }
+      if (command === 'platform_info') {
+        const layout = platform.resolveAppLayout(appPath);
+        reply({
+          ok: true,
+          platform: platform.id,
+          arch: process.arch,
+          stateDir,
+          appPath,
+          executablePath: layout.executablePath,
+          profileDir: profile,
+          shortcutSupport: platform.id === 'win32',
+          defaultLanguage: 'zh-Hans',
+        });
+        return;
+      }
+      if (command === 'shortcut_scan') {
+        (async () => {
+          const layout = platform.resolveAppLayout(appPath);
+          if (platform.id !== 'win32' || !platform.scanAntigravityShortcuts) {
+            reply({
+              ok: true,
+              unsupported: platform.id !== 'win32',
+              officialExePath: layout.executablePath,
+              shortcuts: [],
+            });
+            return;
+          }
+          const shortcuts = await platform.scanAntigravityShortcuts(layout.executablePath, stateDir);
+          reply({
+            ok: true,
+            officialExePath: layout.executablePath,
+            shortcuts,
+          });
+        })().catch(error => reply({ ok: false, error: sanitizeErrorMessage(error) }));
+        return;
+      }
       if (command === 'account_switch_preflight') {
         (async () => {
           let appRunning = false;
@@ -1121,24 +1161,49 @@ async function run() {
           const insidersPrefix = '/Applications/Antigravity - Insiders.app/Contents/';
           const stablePrefix = `${target.appPath}/Contents/`;
           try {
-            const { stdout: psOut } = await execFileAsync('/bin/ps', ['-ax', '-ww', '-o', 'pid=,pcpu=,args='], { timeout: 3000 });
-            for (const line of psOut.split('\n')) {
-              const m = line.trim().match(/^(\d+)\s+([\d.]+)\s+(.*)$/);
-              if (!m) continue;
-              const cpu = parseFloat(m[2] || '0');
-              const args = m[3] || '';
-              if (args.startsWith(insidersPrefix)) {
-                // Align with AccountSwitchService.guardStopped(): block any Insiders process sharing official credentials.
-                appRunning = true;
-                insidersRunning = true;
-              } else if (args.startsWith(stablePrefix)) {
-                appRunning = true;
-                stableRunning = true;
-              } else {
-                continue;
+            if (platform.id === 'win32') {
+              const processes = await platform.listProcesses();
+              const layout = platform.resolveAppLayout(target.appPath);
+              const appRootNorm = layout.appRoot.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+              for (const proc of processes) {
+                const exeNorm = (proc.executablePath || '').replace(/\\/g, '/');
+                const exeLower = exeNorm.toLowerCase();
+                const cmdNorm = (proc.commandLine || '').replace(/\\/g, '/');
+                const baseLower = exeLower.split('/').pop() || '';
+                const cpu = typeof proc.cpuPercent === 'number' && Number.isFinite(proc.cpuPercent) ? proc.cpuPercent : 0;
+                if (platform.isInsidersPath(exeNorm) || platform.isInsidersPath(cmdNorm) || baseLower.startsWith('antigravity - insiders')) {
+                  appRunning = true;
+                  insidersRunning = true;
+                } else if (exeLower.startsWith(`${appRootNorm}/`) || baseLower === 'antigravity.exe') {
+                  appRunning = true;
+                  stableRunning = true;
+                } else {
+                  continue;
+                }
+                if ((layout.languageServerExePattern.test(baseLower) || /language_server/i.test(cmdNorm)) && cpu > maxLsCpu) {
+                  maxLsCpu = cpu;
+                }
               }
-              if (/language_server/i.test(args) && cpu > maxLsCpu) {
-                maxLsCpu = cpu;
+            } else {
+              const { stdout: psOut } = await execFileAsync('/bin/ps', ['-ax', '-ww', '-o', 'pid=,pcpu=,args='], { timeout: 3000 });
+              for (const line of psOut.split('\n')) {
+                const m = line.trim().match(/^(\d+)\s+([\d.]+)\s+(.*)$/);
+                if (!m) continue;
+                const cpu = parseFloat(m[2] || '0');
+                const args = m[3] || '';
+                if (args.startsWith(insidersPrefix)) {
+                  // Align with AccountSwitchService.guardStopped(): block any Insiders process sharing official credentials.
+                  appRunning = true;
+                  insidersRunning = true;
+                } else if (args.startsWith(stablePrefix)) {
+                  appRunning = true;
+                  stableRunning = true;
+                } else {
+                  continue;
+                }
+                if (/language_server/i.test(args) && cpu > maxLsCpu) {
+                  maxLsCpu = cpu;
+                }
               }
             }
           } catch {}
@@ -1315,6 +1380,33 @@ async function run() {
             return;
           }
           if(command==='shortcut_set'){if(!fixture)throw new Error(bt('main.shortcut_removed'));await controller.configureShortcut(parsed.enabled===true);reply({ok:true});return;}
+          if (command === 'shortcut_apply') {
+            if (parsed.confirmed !== true) {
+              throw new Error('Explicit confirmation required');
+            }
+            if (platform.id !== 'win32' || !platform.applyShortcutDebugPort) {
+              reply({ ok: false, unsupported: true, updated: [], skipped: [], failed: [] });
+              return;
+            }
+            const layout = platform.resolveAppLayout(appPath);
+            const paths = Array.isArray(parsed.paths) ? parsed.paths.map(String) : undefined;
+            const res = await platform.applyShortcutDebugPort(paths, stateDir, layout.executablePath);
+            reply({ ok: true, ...res });
+            return;
+          }
+          if (command === 'shortcut_restore') {
+            if (parsed.confirmed !== true) {
+              throw new Error('Explicit confirmation required');
+            }
+            if (platform.id !== 'win32' || !platform.restoreShortcutDebugPort) {
+              reply({ ok: false, unsupported: true, restored: [], skipped: [], failed: [] });
+              return;
+            }
+            const paths = Array.isArray(parsed.paths) ? parsed.paths.map(String) : undefined;
+            const res = await platform.restoreShortcutDebugPort(stateDir, paths);
+            reply({ ok: true, ...res });
+            return;
+          }
           if(command==='api_pricing_revalue_preview'){reply({ok:true,preview:await usageManager.previewRevalueHistory(parsed.mode === 'unpriced_only' ? 'unpriced_only' : 'force_all')});return;}
           if(command==='api_pricing_revalue'){const mode = parsed.mode === 'unpriced_only' ? 'unpriced_only' : 'force_all';reply({ok:true,...await usageManager.revalueHistory(parsed.confirm===true, { mode, previewId: typeof parsed.previewId === 'string' ? parsed.previewId : undefined })});return;}
           if(command==='api_pricing_revalue_rollback'){reply({ok:true,...await usageManager.restoreRevalueHistory(String(parsed.previewId ?? ''),parsed.confirm===true)});return;}
