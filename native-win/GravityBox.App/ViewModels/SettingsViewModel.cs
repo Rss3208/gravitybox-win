@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text.Json.Nodes;
@@ -54,6 +55,21 @@ public sealed partial class SettingsViewModel : ObservableObject
     private long _protectedBytes;
 
     [ObservableProperty]
+    private string _runtimeCacheSizeText = "0 B";
+
+    [ObservableProperty]
+    private string _logsSizeText = "0 B";
+
+    [ObservableProperty]
+    private string _protectedSizeText = "0 B";
+
+    [ObservableProperty]
+    private string _storageSummaryText = "可撤回清理运行缓存与超期日志，支持一键原位还原";
+
+    [ObservableProperty]
+    private string _shortcutsSummaryText = "管理桌面与开始菜单快捷方式调试参数，支持一键无损还原";
+
+    [ObservableProperty]
     private bool _clearRuntimeCache = true;
 
     [ObservableProperty]
@@ -70,7 +86,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     // Pricing sync & revalue state
     [ObservableProperty]
-    private string _pricingStatusText = string.Empty;
+    private string _pricingStatusText = "核对远端价格表或对历史账单执行可回滚重估";
 
     [ObservableProperty]
     private string _revaluePreviewId = string.Empty;
@@ -94,12 +110,57 @@ public sealed partial class SettingsViewModel : ObservableObject
         _l10n = l10n ?? throw new ArgumentNullException(nameof(l10n));
         _lifecycle = lifecycle ?? throw new ArgumentNullException(nameof(lifecycle));
 
-        _selectedLanguage = _config.Value.AppLanguage ?? "zh-Hans";
+        _selectedLanguage = L10nService.NormalizeLanguageCode(_config.Value.AppLanguage);
         _hudEnabled = _config.Value.HudEnabled;
         _quotaRefreshMinutes = _config.Value.QuotaRefreshMinutes;
         _autoPricingSyncEnabled = _config.Value.AutoPricingSyncEnabled;
         _launchAtLogin = _config.Value.LaunchAtLogin;
         _syncAntigravityLifecycle = _config.Value.SyncAntigravityLifecycle;
+    }
+
+    partial void OnQuotaRefreshMinutesChanged(int value)
+    {
+        int normalized = value is 0 or 5 or 10 or 15 or 30 or 60 ? value : 0;
+        if (normalized != value)
+        {
+            QuotaRefreshMinutes = normalized;
+            return;
+        }
+        _config.Update(c => c.QuotaRefreshMinutes = normalized);
+    }
+
+    [RelayCommand]
+    public async Task RefreshAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await Task.WhenAll(
+                ScanShortcutsAsync(cancellationToken),
+                ScanMaintenanceAsync(cancellationToken),
+                LoadPricingStatusAsync(cancellationToken)).ConfigureAwait(false);
+        }
+        catch
+        {
+            // Individual loaders report ErrorBanner if needed
+        }
+    }
+
+    private async Task LoadPricingStatusAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var res = await _bridge.SendAsync("pricing_sync_status", cancellationToken: cancellationToken).ConfigureAwait(false);
+            var status = res["status"]?.AsObject();
+            string? msg = status?["message"].AsString();
+            if (!string.IsNullOrWhiteSpace(msg))
+            {
+                UiDispatch.Run(() => PricingStatusText = msg);
+            }
+        }
+        catch
+        {
+            // Keep default subtitle
+        }
     }
 
     public async Task SetLanguageAsync(string language, CancellationToken cancellationToken = default)
@@ -120,6 +181,19 @@ public sealed partial class SettingsViewModel : ObservableObject
         _config.Update(c => c.HudEnabled = enabled);
         await _bridge.SendAsync("hud_set", new JsonObject { ["enabled"] = enabled }, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    [RelayCommand]
+    public void SelectQuotaRefreshMinutes(object? minutesParam)
+    {
+        if (minutesParam is int i)
+        {
+            QuotaRefreshMinutes = i;
+        }
+        else if (int.TryParse(minutesParam?.ToString(), out int parsed))
+        {
+            QuotaRefreshMinutes = parsed;
+        }
     }
 
     public void SetLaunchAtLogin(bool enabled, string? exePath = null)
@@ -147,29 +221,42 @@ public sealed partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     public async Task ScanShortcutsAsync(CancellationToken cancellationToken = default)
     {
-        ErrorBanner = null;
+        UiDispatch.Run(() => ErrorBanner = null);
         var res = await _bridge.SendAsync("shortcut_scan", cancellationToken: cancellationToken).ConfigureAwait(false);
-        Shortcuts.Clear();
+        var built = new List<ShortcutStatusItem>();
         var arr = res["shortcuts"]?.AsArray();
-        if (arr == null) return;
-        foreach (var node in arr)
+        if (arr != null)
         {
-            var obj = node?.AsObject();
-            if (obj == null) continue;
-            Shortcuts.Add(new ShortcutStatusItem(
-                obj["path"].AsString() ?? string.Empty,
-                obj["location"].AsString() ?? "custom",
-                obj["name"].AsString() ?? "Antigravity",
-                obj["arguments"].AsString() ?? string.Empty,
-                obj["hasDebugPort"].AsBool(),
-                obj["hasBackup"].AsBool()));
+            foreach (var node in arr)
+            {
+                var obj = node?.AsObject();
+                if (obj == null) continue;
+                built.Add(new ShortcutStatusItem(
+                    obj["path"].AsString() ?? string.Empty,
+                    obj["location"].AsString() ?? "custom",
+                    obj["name"].AsString() ?? "Antigravity",
+                    obj["arguments"].AsString() ?? string.Empty,
+                    obj["hasDebugPort"].AsBool(),
+                    obj["hasBackup"].AsBool()));
+            }
         }
+        int enabledCount = built.Count(s => s.HasDebugPort);
+        string summary = built.Count > 0
+            ? $"已扫描 {built.Count} 个快捷方式（{enabledCount} 个已启用无感调试参数）"
+            : "未检测到 Antigravity 官方快捷方式";
+
+        UiDispatch.Run(() =>
+        {
+            Shortcuts.Clear();
+            foreach (var s in built) Shortcuts.Add(s);
+            ShortcutsSummaryText = summary;
+        });
     }
 
     [RelayCommand]
     public async Task ApplyAllShortcutsAsync(CancellationToken cancellationToken = default)
     {
-        ErrorBanner = null;
+        UiDispatch.Run(() => ErrorBanner = null);
         await _bridge.SendAsync("shortcut_apply", new JsonObject { ["confirmed"] = true }, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
         await ScanShortcutsAsync(cancellationToken).ConfigureAwait(false);
@@ -178,7 +265,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     public async Task RestoreAllShortcutsAsync(CancellationToken cancellationToken = default)
     {
-        ErrorBanner = null;
+        UiDispatch.Run(() => ErrorBanner = null);
         await _bridge.SendAsync("shortcut_restore", new JsonObject { ["confirmed"] = true }, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
         await ScanShortcutsAsync(cancellationToken).ConfigureAwait(false);
@@ -187,37 +274,51 @@ public sealed partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     public async Task ScanMaintenanceAsync(CancellationToken cancellationToken = default)
     {
-        ErrorBanner = null;
+        UiDispatch.Run(() => ErrorBanner = null);
         var scanTask = _bridge.SendAsync("maintenance_scan", cancellationToken: cancellationToken);
         var histTask = _bridge.SendAsync("maintenance_history", cancellationToken: cancellationToken);
         await Task.WhenAll(scanTask, histTask).ConfigureAwait(false);
 
         var scan = scanTask.Result;
-        RuntimeCacheBytes = scan["runtimeBytes"].AsInt64(0);
-        LogsBytes = scan["logsBytes"].AsInt64(0);
-        ProtectedBytes = scan["protectedBytes"].AsInt64(0);
+        long runtimeBytes = scan["buckets"]?["runtimeCache"]?["bytes"].AsInt64(0)
+            ?? scan["runtimeBytes"].AsInt64(0);
+        long logsBytes = scan["buckets"]?["historyLogs"]?["bytes"].AsInt64(0)
+            ?? scan["logsBytes"].AsInt64(0);
+        long protBytes = scan["protectedBytes"].AsInt64(0);
 
         var hist = histTask.Result["snapshots"]?.AsArray();
+        string snapId = string.Empty;
         if (hist != null && hist.Count > 0)
         {
-            LatestSnapshotId = hist[0]?["id"].AsString() ?? string.Empty;
-            HasRestorePoint = !string.IsNullOrEmpty(LatestSnapshotId);
+            snapId = hist[0]?["id"].AsString() ?? string.Empty;
         }
-        else
+        long releasable = runtimeBytes + logsBytes;
+        string summary = releasable > 0
+            ? $"可清理运行缓存 {QuotaFormatting.FormatBytes(runtimeBytes)} · 历史日志 {QuotaFormatting.FormatBytes(logsBytes)} · 已保护会话 {QuotaFormatting.FormatBytes(protBytes)}"
+            : $"存储整洁 · 已保护会话资产 {QuotaFormatting.FormatBytes(protBytes)}";
+
+        UiDispatch.Run(() =>
         {
-            LatestSnapshotId = string.Empty;
-            HasRestorePoint = false;
-        }
+            RuntimeCacheBytes = runtimeBytes;
+            LogsBytes = logsBytes;
+            ProtectedBytes = protBytes;
+            RuntimeCacheSizeText = QuotaFormatting.FormatBytes(runtimeBytes);
+            LogsSizeText = QuotaFormatting.FormatBytes(logsBytes);
+            ProtectedSizeText = QuotaFormatting.FormatBytes(protBytes);
+            StorageSummaryText = summary;
+            LatestSnapshotId = snapId;
+            HasRestorePoint = !string.IsNullOrEmpty(snapId);
+        });
     }
 
     [RelayCommand]
     public async Task RunSmartClearAsync(CancellationToken cancellationToken = default)
     {
-        ErrorBanner = null;
+        UiDispatch.Run(() => ErrorBanner = null);
         var preflight = await _bridge.SendAsync("maintenance_preflight", cancellationToken: cancellationToken).ConfigureAwait(false);
         if (preflight["ok"].AsBool() == false)
         {
-            ErrorBanner = preflight["error"].AsString() ?? "清理预检未通过";
+            UiDispatch.Run(() => ErrorBanner = preflight["error"].AsString() ?? "清理预检未通过");
             return;
         }
 
@@ -236,7 +337,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     public async Task RestoreLatestSnapshotAsync(CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrEmpty(LatestSnapshotId)) return;
-        ErrorBanner = null;
+        UiDispatch.Run(() => ErrorBanner = null);
         await _bridge.SendAsync("maintenance_restore", new JsonObject { ["snapshotId"] = LatestSnapshotId }, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
         await ScanMaintenanceAsync(cancellationToken).ConfigureAwait(false);
@@ -245,48 +346,53 @@ public sealed partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     public async Task CheckPricingSyncAsync(CancellationToken cancellationToken = default)
     {
-        ErrorBanner = null;
+        UiDispatch.Run(() => ErrorBanner = null);
         var res = await _bridge.SendAsync("pricing_sync_check", cancellationToken: cancellationToken).ConfigureAwait(false);
-        PricingStatusText = res["status"]?["message"].AsString() ?? "价格表已核对";
+        string msg = res["status"]?["message"].AsString() ?? "价格表已核对";
+        UiDispatch.Run(() => PricingStatusText = msg);
     }
 
     [RelayCommand]
     public async Task PreviewRevalueAsync(CancellationToken cancellationToken = default)
     {
-        ErrorBanner = null;
+        UiDispatch.Run(() => ErrorBanner = null);
         var res = await _bridge.SendAsync("api_pricing_revalue_preview", new JsonObject { ["mode"] = "force_all" }, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
         var prev = res["preview"]?.AsObject();
-        RevaluePreviewId = prev?["previewId"].AsString() ?? string.Empty;
+        string pid = prev?["previewId"].AsString() ?? string.Empty;
         double before = prev?["before"].AsDouble() ?? 0.0;
         double after = prev?["after"].AsDouble() ?? 0.0;
-        RevaluePreviewSummary = $"重估预览: ${before:0.00} → ${after:0.00}";
+        UiDispatch.Run(() =>
+        {
+            RevaluePreviewId = pid;
+            RevaluePreviewSummary = $"重估预览: ${before:0.00} → ${after:0.00}";
+        });
     }
 
     [RelayCommand]
     public async Task ApplyRevalueAsync(CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrEmpty(RevaluePreviewId)) return;
-        ErrorBanner = null;
+        UiDispatch.Run(() => ErrorBanner = null);
         await _bridge.SendAsync("api_pricing_revalue", new JsonObject
         {
             ["confirm"] = true,
             ["previewId"] = RevaluePreviewId,
             ["mode"] = "force_all",
         }, cancellationToken: cancellationToken).ConfigureAwait(false);
-        RevaluePreviewSummary = "历史账单重估已应用";
+        UiDispatch.Run(() => RevaluePreviewSummary = "历史账单重估已应用");
     }
 
     [RelayCommand]
     public async Task RollbackRevalueAsync(CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrEmpty(RevaluePreviewId)) return;
-        ErrorBanner = null;
+        UiDispatch.Run(() => ErrorBanner = null);
         await _bridge.SendAsync("api_pricing_revalue_rollback", new JsonObject
         {
             ["confirm"] = true,
             ["previewId"] = RevaluePreviewId,
         }, cancellationToken: cancellationToken).ConfigureAwait(false);
-        RevaluePreviewSummary = "已回滚历史账单重估";
+        UiDispatch.Run(() => RevaluePreviewSummary = "已回滚历史账单重估");
     }
 }

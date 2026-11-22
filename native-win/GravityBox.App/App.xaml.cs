@@ -78,7 +78,7 @@ public partial class App : System.Windows.Application
         var accountsVm = new AccountsViewModel(_bridge, config, l10n, _lifecycle);
         var usageVm = new UsageViewModel(_bridge, config, l10n);
         var settingsVm = new SettingsViewModel(_bridge, config, l10n, _lifecycle);
-        var aboutVm = new AboutViewModel(config, l10n, _updateManager);
+        var aboutVm = new AboutViewModel(config, l10n, _updateManager, _bridge);
 
         var flyoutVm = new TrayFlyoutViewModel(_bridge, config, l10n);
         _shellVm = new MainShellViewModel(
@@ -102,6 +102,8 @@ public partial class App : System.Windows.Application
                 case 0: _ = overviewVm.RefreshAsync(force: true); break;
                 case 1: _ = accountsVm.RefreshAsync(); break;
                 case 2: _ = usageVm.RefreshAsync(); break;
+                case 3: _ = settingsVm.RefreshAsync(); break;
+                case 4: _ = aboutVm.RefreshAsync(); break;
             }
         };
 
@@ -134,6 +136,7 @@ public partial class App : System.Windows.Application
         }
 
         _shellVm.StartPolling();
+        _shellVm.RefreshCurrentPage();
 
         if (!minimized)
         {

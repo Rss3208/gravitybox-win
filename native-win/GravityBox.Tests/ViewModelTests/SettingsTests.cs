@@ -138,5 +138,67 @@ public sealed class SettingsTests : IDisposable
         Assert.True(bridge.ShortcutApplied);
         await vm.RestoreAllShortcutsAsync();
         Assert.True(bridge.ShortcutRestored);
+
+        vm.SelectQuotaRefreshMinutes(15);
+        Assert.Equal(15, config.Value.QuotaRefreshMinutes);
+    }
+
+    [Fact]
+    public async Task SettingsViewModel_ParsesCanonicalMaintenanceScanBuckets()
+    {
+        string repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+        var config = new ConfigurationStore(_tempRoot);
+        var l10n = new L10nService(Path.Combine(repoRoot, "assets", "i18n"));
+        using var lifecycle = new LifecycleSyncService();
+        var vm = new SettingsViewModel(new CanonicalSettingsBridge(), config, l10n, lifecycle);
+
+        await vm.RefreshAsync();
+
+        Assert.Equal(2_500_000, vm.RuntimeCacheBytes);
+        Assert.Equal(1_200_000, vm.LogsBytes);
+        Assert.Equal(8_000_000, vm.ProtectedBytes);
+        Assert.Contains("2.5 MB", vm.RuntimeCacheSizeText);
+        Assert.Single(vm.Shortcuts);
+    }
+
+    private sealed class CanonicalSettingsBridge : IBackendBridge
+    {
+        public string StateDir => string.Empty;
+        public string PipeName => "stub";
+        public bool IsOwnedProcessRunning => true;
+        public int? OwnedPid => 104;
+        public string? PreferredLocale { get; set; } = "zh-Hans";
+        public event Action<string>? OnExit { add { } remove { } }
+        public Task LaunchAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task StopAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+        public Task<JsonObject> SendAsync(string command, JsonObject? parameters = null, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<JsonObject>(command switch
+            {
+                "maintenance_scan" => new JsonObject
+                {
+                    ["ok"] = true,
+                    ["buckets"] = new JsonObject
+                    {
+                        ["runtimeCache"] = new JsonObject { ["bytes"] = 2_500_000 },
+                        ["historyLogs"] = new JsonObject { ["bytes"] = 1_200_000 },
+                    },
+                    ["protectedBytes"] = 8_000_000,
+                },
+                "maintenance_history" => new JsonObject { ["ok"] = true, ["snapshots"] = new JsonArray() },
+                "pricing_sync_status" => new JsonObject { ["ok"] = true, ["status"] = new JsonObject { ["message"] = "已同步" } },
+                "shortcut_scan" => new JsonObject
+                {
+                    ["ok"] = true,
+                    ["shortcuts"] = new JsonArray
+                    {
+                        new JsonObject { ["path"] = "Desktop\\Antigravity.lnk", ["location"] = "desktop", ["name"] = "Antigravity", ["hasDebugPort"] = true, ["hasBackup"] = true },
+                    },
+                },
+                _ => new JsonObject { ["ok"] = true },
+            });
+        }
     }
 }

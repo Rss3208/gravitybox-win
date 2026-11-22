@@ -121,4 +121,97 @@ public sealed class UsageTests : IDisposable
         await vm.ReleaseSnapshotAsync();
         Assert.Equal("snap-123", bridge.ReleasedSnapshotId);
     }
+
+    [Fact]
+    public async Task UsageViewModel_ParsesCanonicalNodeIpcPayload_ByModelAndTrends()
+    {
+        string repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+        var config = new ConfigurationStore(_tempRoot) { Value = { MenuUsagePeriod = 0 } };
+        var l10n = new L10nService(Path.Combine(repoRoot, "assets", "i18n"));
+        var vm = new UsageViewModel(new CanonicalUsageBridge(), config, l10n);
+
+        await vm.RefreshAsync();
+
+        Assert.Equal("264,367,614", vm.TotalTokensText);
+        Assert.Equal("$57.31", vm.EstimatedCostText);
+        Assert.Equal("1,234", vm.TotalRequestsText);
+        Assert.Equal("95.8%", vm.CacheHitRateText);
+        Assert.Equal(2, vm.ModelRows.Count);
+        Assert.Equal("gemini-3.8-pro", vm.ModelRows[0].ModelName);
+        Assert.Equal(2, vm.DonutSlices.Count);
+        Assert.Equal(2, vm.TrendPoints.Count);
+        Assert.Equal("09时", vm.TrendPoints[0].Label);
+
+        vm.SelectPeriod(1);
+        await Task.Delay(50);
+        Assert.Equal("7d", vm.ActivePeriodKey);
+        await vm.RefreshAsync();
+        Assert.Single(vm.TrendPoints);
+        Assert.Equal("11-22", vm.TrendPoints[0].Label);
+
+        await vm.ReleaseSnapshotAsync();
+    }
+
+    private sealed class CanonicalUsageBridge : IBackendBridge
+    {
+        public string StateDir => string.Empty;
+        public string PipeName => "stub";
+        public bool IsOwnedProcessRunning => true;
+        public int? OwnedPid => 101;
+        public string? PreferredLocale { get; set; } = "zh-Hans";
+        public event Action<string>? OnExit { add { } remove { } }
+        public Task LaunchAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task StopAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+        public Task<JsonObject> SendAsync(string command, JsonObject? parameters = null, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+        {
+            if (command == "usage_summary")
+            {
+                return Task.FromResult(new JsonObject
+                {
+                    ["ok"] = true,
+                    ["snapshotId"] = "snap-real-1",
+                    ["summary"] = new JsonObject
+                    {
+                        ["totalTokens"] = 264367614,
+                        ["promptTokens"] = 10000000,
+                        ["cachedTokens"] = 228000000,
+                        ["candidatesTokens"] = 26367614,
+                        ["requestCount"] = 1234,
+                        ["estimatedUsd"] = 57.31,
+                    },
+                    ["byModel"] = new JsonArray
+                    {
+                        new JsonObject
+                        {
+                            ["model"] = "gemini-3.8-pro",
+                            ["totalTokens"] = 200000000,
+                            ["requestCount"] = 900,
+                            ["estimatedUsd"] = 45.10,
+                            ["priced"] = true,
+                        },
+                        new JsonObject
+                        {
+                            ["model"] = "claude-4.5-sonnet",
+                            ["totalTokens"] = 64367614,
+                            ["requestCount"] = 334,
+                            ["estimatedUsd"] = 12.21,
+                            ["priced"] = true,
+                        },
+                    },
+                    ["todayHourly"] = new JsonArray
+                    {
+                        new JsonObject { ["hour"] = 9, ["total_tokens"] = 120000, ["request_count"] = 12 },
+                        new JsonObject { ["hour"] = 10, ["total_tokens"] = 240000, ["request_count"] = 24 },
+                    },
+                    ["dailyTrends"] = new JsonArray
+                    {
+                        new JsonObject { ["date"] = "2026-11-22", ["total_tokens"] = 264367614, ["request_count"] = 1234 },
+                    },
+                });
+            }
+            return Task.FromResult(new JsonObject { ["ok"] = true });
+        }
+    }
 }

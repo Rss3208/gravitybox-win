@@ -49,15 +49,17 @@
                     <StackPanel Orientation="Horizontal">
                         <RadioButton Content="用量"
                                      Style="{StaticResource SegmentedTabRadioStyle}"
-                                     IsChecked="{Binding SelectedTab, Converter={x:Null}, Mode=OneWay}"
+                                     IsChecked="{Binding SelectedTab, Converter={StaticResource EqualsParamConverter}, ConverterParameter=0, Mode=OneWay}"
                                      Command="{Binding SelectTabCommand}"
                                      CommandParameter="0" />
                         <RadioButton Content="配额"
                                      Style="{StaticResource SegmentedTabRadioStyle}"
+                                     IsChecked="{Binding SelectedTab, Converter={StaticResource EqualsParamConverter}, ConverterParameter=1, Mode=OneWay}"
                                      Command="{Binding SelectTabCommand}"
                                      CommandParameter="1" />
                         <RadioButton Content="账号"
                                      Style="{StaticResource SegmentedTabRadioStyle}"
+                                     IsChecked="{Binding SelectedTab, Converter={StaticResource EqualsParamConverter}, ConverterParameter=2, Mode=OneWay}"
                                      Command="{Binding SelectTabCommand}"
                                      CommandParameter="2" />
                     </StackPanel>

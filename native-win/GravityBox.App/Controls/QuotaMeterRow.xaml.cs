@@ -24,7 +24,7 @@ public partial class QuotaMeterRow : UserControl
 
     public static readonly DependencyProperty BarBrushProperty = DependencyProperty.Register(
         nameof(BarBrush), typeof(Brush), typeof(QuotaMeterRow),
-        new PropertyMetadata(new SolidColorBrush(Color.FromRgb(0x25, 0x63, 0xEB))));
+        new PropertyMetadata(null, OnPercentageChanged));
 
     public string Title
     {
@@ -70,9 +70,21 @@ public partial class QuotaMeterRow : UserControl
         }
     }
 
+    private static readonly Brush HighBrush = CreateFrozenBrush(0x0F, 0x9D, 0x58);
+    private static readonly Brush MidBrush = CreateFrozenBrush(0xD9, 0x77, 0x06);
+    private static readonly Brush LowBrush = CreateFrozenBrush(0xDC, 0x26, 0x26);
+
+    private static Brush CreateFrozenBrush(byte r, byte g, byte b)
+    {
+        var brush = new SolidColorBrush(Color.FromRgb(r, g, b));
+        brush.Freeze();
+        return brush;
+    }
+
     private void UpdateFillWidth()
     {
         double clamped = Math.Clamp(Percentage, 0.0, 100.0) / 100.0;
         FillBar.Width = Math.Max(0, ActualWidth * clamped);
+        FillBar.Background = BarBrush ?? (Percentage >= 50.0 ? HighBrush : Percentage >= 20.0 ? MidBrush : LowBrush);
     }
 }

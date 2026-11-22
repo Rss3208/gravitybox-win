@@ -1,18 +1,107 @@
 <Window x:Class="GravityBox.App.Views.Dialogs.AddAccountDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="添加账号"
-        Width="440"
+        Title="管理账号"
+        Width="490"
         SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         Background="{DynamicResource BackgroundBrush}">
     <StackPanel Margin="20">
-        <TextBlock Text="通过 Refresh Token 添加账号" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,8" />
-        <TextBox x:Name="TokenBox" Height="72" TextWrapping="Wrap" AcceptsReturn="True" Margin="0,0,0,14" />
+        <TextBlock Text="管理与添加账号" Style="{StaticResource PageTitleStyle}" FontSize="18" Margin="0,0,0,12" />
+
+        <!-- Option 1: Save current live account -->
+        <Border Style="{StaticResource CardContainerStyle}" Padding="14" Margin="0,0,0,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                    <TextBlock Text="保存当前 Antigravity 登录账号" Style="{StaticResource CardTitleStyle}" />
+                    <TextBlock x:Name="SaveCurrentSubLabel"
+                               Text="自动读取本机 Antigravity 当前登录凭据并保存到托管列表"
+                               Style="{StaticResource SecondaryLabelStyle}"
+                               TextWrapping="Wrap"
+                               Margin="0,3,0,0" />
+                </StackPanel>
+                <Button x:Name="SaveCurrentBtn"
+                        Grid.Column="1"
+                        Content="保存当前账号"
+                        Style="{StaticResource PrimaryButtonStyle}"
+                        VerticalAlignment="Center"
+                        Click="OnSaveCurrentClick" />
+            </Grid>
+        </Border>
+
+        <!-- Option 2: Import / Export JSON -->
+        <Border Style="{StaticResource CardContainerStyle}" Padding="14" Margin="0,0,0,10">
+            <StackPanel>
+                <Grid Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                        <TextBlock Text="从 JSON 文件批量导入" Style="{StaticResource CardTitleStyle}" />
+                        <TextBlock Text="支持含 refresh_token 的账号数组或单账号 JSON 备份文件" Style="{StaticResource SecondaryLabelStyle}" Margin="0,2,0,0" />
+                    </StackPanel>
+                    <Button Grid.Column="1" Content="选择文件…" Style="{StaticResource SecondaryButtonStyle}" VerticalAlignment="Center" Click="OnImportJsonClick" />
+                </Grid>
+
+                <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="0,2,0,10" />
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                        <TextBlock Text="导出全部账号安全备份" Style="{StaticResource CardTitleStyle}" />
+                        <TextBlock Text="导出前将二次确认，请妥善保管导出的明文凭据 JSON 文件" Style="{StaticResource SecondaryLabelStyle}" Margin="0,2,0,0" />
+                    </StackPanel>
+                    <Button x:Name="ExportBtn" Grid.Column="1" Content="导出备份…" Style="{StaticResource SecondaryButtonStyle}" VerticalAlignment="Center" Click="OnExportClick" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- Option 3: Google OAuth & Refresh Token -->
+        <Border Style="{StaticResource CardContainerStyle}" Padding="14" Margin="0,0,0,12">
+            <StackPanel>
+                <Grid Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                        <TextBlock Text="Google OAuth 浏览器登录" Style="{StaticResource CardTitleStyle}" />
+                        <TextBlock Text="在系统默认浏览器中授权登录新账号（需本地已配置 OAuth 客户端）" Style="{StaticResource SecondaryLabelStyle}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                    </StackPanel>
+                    <Button x:Name="OAuthBtn" Grid.Column="1" Content="浏览器登录" Style="{StaticResource SecondaryButtonStyle}" VerticalAlignment="Center" Click="OnOAuthClick" />
+                </Grid>
+
+                <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="0,0,0,10" />
+
+                <TextBlock Text="通过 Refresh Token 添加账号" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,6" />
+                <TextBox x:Name="TokenBox" Height="62" TextWrapping="Wrap" AcceptsReturn="True" Margin="0,0,0,10" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="FeedbackLabel"
+                               Grid.Column="0"
+                               Style="{StaticResource SecondaryLabelStyle}"
+                               VerticalAlignment="Center"
+                               TextWrapping="Wrap"
+                               Margin="0,0,10,0" />
+                    <Button Grid.Column="1" Content="验证并添加" Style="{StaticResource PrimaryButtonStyle}" Click="OnConfirmClick" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button Content="取消" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,8,0" Click="OnCancelClick" />
-            <Button Content="添加" Style="{StaticResource PrimaryButtonStyle}" Click="OnConfirmClick" />
+            <Button Content="关闭" Style="{StaticResource SecondaryButtonStyle}" Click="OnCancelClick" />
         </StackPanel>
     </StackPanel>
 </Window>

@@ -116,6 +116,7 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
         }
         _config.Update(c => c.LastPage = clamped);
         UpdateCurrentPage();
+        RefreshCurrentPageRequested?.Invoke();
     }
 
     private void UpdateCurrentPage()
@@ -192,22 +193,31 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
 
             var res = await _bridge.SendAsync("status", payload, cancellationToken: cancellationToken).ConfigureAwait(false);
             var st = res["status"]?.AsObject();
-            if (st != null)
+            string nextMode = st?["mode"].AsString() ?? StatusMode;
+            string nextMessage = st?["message"].AsString() ?? nextMode;
+            long? nextRev = res["taskRevision"] != null ? res["taskRevision"].AsInt64(-1) : null;
+            int nextRunning = (int)res["runningTasks"].AsInt64(0);
+            UiDispatch.Run(() =>
             {
-                StatusMode = st["mode"].AsString() ?? "waiting";
-                StatusMessage = st["message"].AsString() ?? StatusMode;
-            }
-
-            if (res["taskRevision"] != null)
-            {
-                _taskRevision = res["taskRevision"].AsInt64(-1);
-            }
-            RunningTasksCount = (int)res["runningTasks"].AsInt64(0);
+                if (st != null)
+                {
+                    StatusMode = nextMode;
+                    StatusMessage = nextMessage;
+                }
+                if (nextRev.HasValue)
+                {
+                    _taskRevision = nextRev.Value;
+                }
+                RunningTasksCount = nextRunning;
+            });
         }
         catch
         {
-            StatusMode = "disconnected";
-            StatusMessage = _l10n.T("status.disconnected");
+            UiDispatch.Run(() =>
+            {
+                StatusMode = "disconnected";
+                StatusMessage = _l10n.T("status.disconnected");
+            });
         }
     }
 

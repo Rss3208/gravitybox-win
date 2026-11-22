@@ -155,11 +155,11 @@ public sealed partial class TrayFlyoutViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            ErrorBanner = ex.Message;
+            UiDispatch.Run(() => ErrorBanner = ex.Message);
         }
         finally
         {
-            IsLoading = false;
+            UiDispatch.Run(() => IsLoading = false);
         }
     }
 
@@ -190,70 +190,86 @@ public sealed partial class TrayFlyoutViewModel : ObservableObject
         if (st == null) return;
 
         string mode = st["mode"].AsString() ?? "waiting";
-        DebugPortMissing = mode == "debug-port-missing";
-        ConnectionStatusText = st["message"].AsString() ?? mode;
-        ActiveAccountEmail = st["activeAccountEmail"].AsString()
+        string message = st["message"].AsString() ?? mode;
+        string email = st["activeAccountEmail"].AsString()
             ?? st["liveAccountEmail"].AsString()
             ?? string.Empty;
-        ActiveAccountTier = st["activeSubscriptionTier"].AsString() ?? string.Empty;
+        string tier = st["activeSubscriptionTier"].AsString() ?? string.Empty;
+        UiDispatch.Run(() =>
+        {
+            DebugPortMissing = mode == "debug-port-missing";
+            ConnectionStatusText = message;
+            ActiveAccountEmail = email;
+            ActiveAccountTier = tier;
+        });
     }
 
     private void ApplyDashboard(JsonObject res)
     {
         var usage = res["usage"]?.AsObject();
+        string tokensStr = TodayTokensText;
+        string reqsStr = TodayRequestsText;
+        string costStr = TodayCostText;
         if (usage != null)
         {
-            var today = usage["today"]?.AsObject() ?? usage;
-            long tokens = today["total_tokens"].AsInt64();
-            long reqs = today["requests"].AsInt64();
-            double usd = today["estimated_usd"].AsDouble();
-            TodayTokensText = tokens.ToString("N0");
-            TodayRequestsText = reqs.ToString("N0");
-            TodayCostText = $"${usd:0.00}";
+            var today = usage["today"]?.AsObject();
+            long tokens = today?["total_tokens"].AsInt64(0) ?? usage["todayTokens"].AsInt64(0);
+            long reqs = today?["requests"].AsInt64(0) ?? usage["requestCount"].AsInt64(0);
+            double usd = today?["estimated_usd"].AsNullableDouble() ?? usage["estimatedUsd"].AsDouble();
+            tokensStr = tokens.ToString("N0");
+            reqsStr = reqs.ToString("N0");
+            costStr = $"${usd:0.00}";
         }
 
-        QuotaRows.Clear();
-        var quotaGroups = res["quota"]?["groups"]?.AsArray();
-        if (quotaGroups != null)
+        var acctNode = res["accounts"]?.AsObject();
+        var bars = QuotaFormatting.ExtractQuotaBars(acctNode ?? res);
+        if (bars.Count == 0 && acctNode != null)
         {
-            foreach (var gNode in quotaGroups)
-            {
-                var g = gNode?.AsObject();
-                if (g == null) continue;
-                string name = g["displayName"].AsString() ?? "Quota";
-                var buckets = g["buckets"]?.AsArray();
-                if (buckets == null || buckets.Count == 0) continue;
-                var b = buckets[0]?.AsObject();
-                if (b == null) continue;
-                double frac = b["remainingFraction"].AsDouble();
-                double pct = Math.Clamp(frac * 100.0, 0.0, 100.0);
-                string reset = b["resetTime"].AsString() ?? string.Empty;
-                QuotaRows.Add(new TrayQuotaRow(name, pct, $"{pct:0}%", reset));
-            }
+            bars = QuotaFormatting.ExtractQuotaBars(res);
         }
+
+        UiDispatch.Run(() =>
+        {
+            TodayTokensText = tokensStr;
+            TodayRequestsText = reqsStr;
+            TodayCostText = costStr;
+            QuotaRows.Clear();
+            foreach (var b in bars)
+            {
+                QuotaRows.Add(new TrayQuotaRow(b.Title, b.Percentage, b.RemainingText, b.ResetText));
+            }
+        });
     }
 
     private void ApplyAccounts(JsonObject res)
     {
-        Accounts.Clear();
         var list = res["accounts"]?.AsArray();
-        if (list == null) return;
-
-        foreach (var node in list)
+        var built = new System.Collections.Generic.List<TrayAccountItem>();
+        if (list != null)
         {
-            var acc = node?.AsObject();
-            if (acc == null) continue;
-            string id = acc["id"].AsString() ?? string.Empty;
-            string email = acc["email"].AsString() ?? string.Empty;
-            string name = acc["name"].AsString() ?? email;
-            string tier = acc["subscription_tier"].AsString() ?? string.Empty;
-            bool isActive = acc["isActive"].AsBool();
-            double? fiveHour = acc["five_hour_quota"]?["remaining_percentage"].AsNullableDouble();
-            string reset = acc["five_hour_quota"]?["reset_text"].AsString() ?? string.Empty;
-            if (!string.IsNullOrEmpty(id))
+            foreach (var node in list)
             {
-                Accounts.Add(new TrayAccountItem(id, email, name, tier, isActive, fiveHour, reset));
+                var acc = node?.AsObject();
+                if (acc == null) continue;
+                string id = acc["id"].AsString() ?? string.Empty;
+                string email = acc["email"].AsString() ?? string.Empty;
+                string name = acc["name"].AsString() ?? email;
+                string tier = acc["subscription_tier"].AsString() ?? string.Empty;
+                bool isActive = acc["isActive"].AsBool();
+                var bars = QuotaFormatting.ExtractQuotaBars(acc);
+                double? fiveHour = bars.Count > 0 ? bars[0].Percentage : acc["five_hour_quota"]?["remaining_percentage"].AsNullableDouble();
+                string reset = bars.Count > 0 ? bars[0].ResetText : (acc["five_hour_quota"]?["reset_text"].AsString() ?? string.Empty);
+                if (!string.IsNullOrEmpty(id))
+                {
+                    built.Add(new TrayAccountItem(id, email, name, tier, isActive, fiveHour, reset));
+                }
             }
         }
+
+        UiDispatch.Run(() =>
+        {
+            Accounts.Clear();
+            foreach (var a in built) Accounts.Add(a);
+        });
     }
 }

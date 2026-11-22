@@ -3,9 +3,10 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:GravityBox.App.Controls"
         Title="存储与维护"
-        Width="520"
+        Width="540"
         SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
         Background="{DynamicResource BackgroundBrush}">
     <StackPanel Margin="20">
         <TextBlock Text="存储空间组成" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,8" />
@@ -13,13 +14,59 @@
                                       RuntimeBytes="{Binding RuntimeCacheBytes}"
                                       LogsBytes="{Binding LogsBytes}"
                                       ProtectedBytes="{Binding ProtectedBytes}"
-                                      Margin="0,0,0,14" />
+                                      Margin="0,0,0,10" />
 
-        <CheckBox Content="清理运行缓存" IsChecked="{Binding ClearRuntimeCache}" Style="{StaticResource DesignSwitchStyle}" Margin="0,0,0,8" />
-        <CheckBox Content="清理超期后台日志" IsChecked="{Binding ClearLogs}" Style="{StaticResource DesignSwitchStyle}" Margin="0,0,0,14" />
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+            <Ellipse Width="8" Height="8" Fill="#2563EB" Margin="0,0,6,0" VerticalAlignment="Center" />
+            <TextBlock Text="{Binding RuntimeCacheSizeText, StringFormat='运行缓存 {0}'}" Style="{StaticResource SecondaryLabelStyle}" Margin="0,0,14,0" />
+            <Ellipse Width="8" Height="8" Fill="#F59E0B" Margin="0,0,6,0" VerticalAlignment="Center" />
+            <TextBlock Text="{Binding LogsSizeText, StringFormat='后台日志 {0}'}" Style="{StaticResource SecondaryLabelStyle}" Margin="0,0,14,0" />
+            <Ellipse Width="8" Height="8" Fill="#10B981" Margin="0,0,6,0" VerticalAlignment="Center" />
+            <TextBlock Text="{Binding ProtectedSizeText, StringFormat='受保护资产 {0}'}" Style="{StaticResource SecondaryLabelStyle}" />
+        </StackPanel>
+
+        <Border Style="{StaticResource CardContainerStyle}" Padding="14" Margin="0,0,0,14">
+            <StackPanel>
+                <Grid Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="清理运行缓存" FontWeight="Medium" Foreground="{DynamicResource TextPrimaryBrush}" />
+                        <TextBlock Text="安全迁移 Chromium / IDE 临时缓存到回收保险箱，可一键还原" Style="{StaticResource SecondaryLabelStyle}" />
+                    </StackPanel>
+                    <CheckBox Grid.Column="1" IsChecked="{Binding ClearRuntimeCache, Mode=TwoWay}" Style="{StaticResource DesignSwitchStyle}" />
+                </Grid>
+
+                <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="0,0,0,10" />
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="清理超期后台日志与独立对话记录" FontWeight="Medium" Foreground="{DynamicResource TextPrimaryBrush}" />
+                        <TextBlock Text="清理前自动归档 Subagent Token 用量，确保费用统计不丢失" Style="{StaticResource SecondaryLabelStyle}" />
+                    </StackPanel>
+                    <CheckBox Grid.Column="1" IsChecked="{Binding ClearLogs, Mode=TwoWay}" Style="{StaticResource DesignSwitchStyle}" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <TextBlock Text="{Binding ErrorBanner}"
+                   Foreground="{DynamicResource WarningTextBrush}"
+                   FontSize="12"
+                   Margin="0,0,0,10"
+                   Visibility="{Binding ErrorBanner, Converter={StaticResource StringNotEmptyToVisibilityConverter}, FallbackValue=Collapsed}" />
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button Content="原位还原最近快照" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,8,0" Command="{Binding RestoreLatestSnapshotCommand}" />
+            <Button Content="原位还原最近快照"
+                    Style="{StaticResource SecondaryButtonStyle}"
+                    Margin="0,0,8,0"
+                    IsEnabled="{Binding HasRestorePoint}"
+                    Command="{Binding RestoreLatestSnapshotCommand}" />
             <Button Content="执行智能清理" Style="{StaticResource PrimaryButtonStyle}" Command="{Binding RunSmartClearCommand}" />
         </StackPanel>
     </StackPanel>

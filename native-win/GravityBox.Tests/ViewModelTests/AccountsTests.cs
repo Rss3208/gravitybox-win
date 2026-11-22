@@ -142,4 +142,81 @@ public sealed class AccountsTests : IDisposable
         await vm.RollbackSwitchAsync();
         Assert.True(bridge.RollbackCalled);
     }
+
+    [Fact]
+    public async Task AccountsViewModel_HandlesEmptyStateWithLiveAccount_AndMultiWindowQuotas()
+    {
+        string repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+        var config = new ConfigurationStore(_tempRoot);
+        var l10n = new L10nService(Path.Combine(repoRoot, "assets", "i18n"));
+        using var lifecycle = new LifecycleSyncService();
+        var emptyBridge = new EmptyLiveBridge();
+        var vm = new AccountsViewModel(emptyBridge, config, l10n, lifecycle);
+
+        await vm.RefreshAsync();
+        Assert.False(vm.HasAccounts);
+        Assert.True(vm.HasDetectedLiveAccount);
+        Assert.Equal("alice@example.invalid", vm.DetectedLiveEmail);
+        Assert.Equal("PRO", vm.DetectedLiveTier);
+
+        vm.AutoSwitchEnabled = true;
+        await vm.ToggleAutoSwitchAsync();
+        Assert.True(emptyBridge.PolicySaved);
+    }
+
+    private sealed class EmptyLiveBridge : IBackendBridge
+    {
+        public bool PolicySaved { get; private set; }
+        public string StateDir => string.Empty;
+        public string PipeName => "stub";
+        public bool IsOwnedProcessRunning => true;
+        public int? OwnedPid => 103;
+        public string? PreferredLocale { get; set; } = "zh-Hans";
+        public event Action<string>? OnExit { add { } remove { } }
+        public Task LaunchAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task StopAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+        public Task<JsonObject> SendAsync(string command, JsonObject? parameters = null, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+        {
+            if (command == "account_list")
+            {
+                return Task.FromResult(new JsonObject
+                {
+                    ["ok"] = true,
+                    ["accounts"] = new JsonArray(),
+                    ["recovery"] = new JsonObject { ["available"] = false },
+                });
+            }
+            if (command == "status")
+            {
+                return Task.FromResult(new JsonObject
+                {
+                    ["ok"] = true,
+                    ["status"] = new JsonObject
+                    {
+                        ["liveAccountEmail"] = "alice@example.invalid",
+                        ["activeSubscriptionTier"] = "PRO",
+                        ["oauthClientConfigured"] = false,
+                    },
+                });
+            }
+            if (command == "auto_switch_get" || command == "auto_switch_set")
+            {
+                if (command == "auto_switch_set") PolicySaved = true;
+                return Task.FromResult(new JsonObject
+                {
+                    ["ok"] = true,
+                    ["config"] = new JsonObject
+                    {
+                        ["enabled"] = true,
+                        ["strategy"] = "priority",
+                        ["reserve_percentage"] = 10,
+                        ["candidate_min_percentage"] = 30,
+                    },
+                });
+            }
+            return Task.FromResult(new JsonObject { ["ok"] = true });
+        }
+    }
 }

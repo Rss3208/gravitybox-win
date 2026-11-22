@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Controls;
 using GravityBox.App.ViewModels;
 
 namespace GravityBox.App.Views.Dialogs;
@@ -12,6 +13,7 @@ public partial class AccountPolicyDialog : Window
         _vm = vm;
         InitializeComponent();
         EnableSwitch.IsChecked = vm.AutoSwitchEnabled;
+        StrategyCombo.SelectedIndex = vm.AutoSwitchStrategy == "round_robin" ? 1 : 0;
         ReserveBox.Text = vm.ReservePercentage.ToString();
         MinCandidateBox.Text = vm.CandidateMinPercentage.ToString();
     }
@@ -20,9 +22,10 @@ public partial class AccountPolicyDialog : Window
 
     private async void OnSaveClick(object sender, RoutedEventArgs e)
     {
+        string strategy = (StrategyCombo.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "priority";
         int reserve = int.TryParse(ReserveBox.Text, out var r) ? r : _vm.ReservePercentage;
         int minCand = int.TryParse(MinCandidateBox.Text, out var m) ? m : _vm.CandidateMinPercentage;
-        await _vm.SavePolicyAsync(EnableSwitch.IsChecked == true, _vm.AutoSwitchStrategy, reserve, minCand);
+        await _vm.SavePolicyAsync(EnableSwitch.IsChecked == true, strategy, reserve, minCand);
         Close();
     }
 }

@@ -5,6 +5,7 @@
         <StackPanel>
             <TextBlock Text="关于" Style="{StaticResource PageTitleStyle}" Margin="0,0,0,14" />
 
+            <!-- Version & Update Hero Card -->
             <Border Style="{StaticResource CardContainerStyle}" Margin="0,0,0,12">
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -16,10 +17,14 @@
                         <TextBlock Text="{Binding VersionText, StringFormat='版本 {0}'}" Style="{StaticResource SecondaryLabelStyle}" Margin="0,4,0,0" />
                         <TextBlock Text="{Binding UpdateStatusText}" FontSize="12.5" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,8,0,0" />
                     </StackPanel>
-                    <Button Grid.Column="1" Content="检查更新" Style="{StaticResource PrimaryButtonStyle}" VerticalAlignment="Center" Command="{Binding CheckUpdatesCommand}" />
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Content="GitHub Releases" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,8,0" Command="{Binding OpenReleasesPageCommand}" />
+                        <Button Content="检查更新" Style="{StaticResource PrimaryButtonStyle}" Command="{Binding CheckUpdatesCommand}" />
+                    </StackPanel>
                 </Grid>
             </Border>
 
+            <!-- Auto Update Setting -->
             <Border Style="{StaticResource CardContainerStyle}" Margin="0,0,0,12">
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -34,18 +39,30 @@
                 </Grid>
             </Border>
 
+            <!-- Target Antigravity Info & Data Directory -->
             <Border Style="{StaticResource CardContainerStyle}">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0">
-                        <TextBlock Text="本地数据目录" FontWeight="Medium" Foreground="{DynamicResource TextPrimaryBrush}" />
-                        <TextBlock Text="{Binding DataDirectory}" Style="{StaticResource SecondaryLabelStyle}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
+                <StackPanel>
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="本地数据目录" FontWeight="Medium" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="{Binding DataDirectory}" Style="{StaticResource SecondaryLabelStyle}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" ToolTip="{Binding DataDirectory}" />
+                        </StackPanel>
+                        <Button Grid.Column="1" Content="在文件资源管理器中显示" Style="{StaticResource SecondaryButtonStyle}" VerticalAlignment="Center" Command="{Binding RevealDataDirectoryCommand}" />
+                    </Grid>
+
+                    <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="0,0,0,12" />
+
+                    <StackPanel>
+                        <TextBlock Text="托管宿主环境（Antigravity 官方正式版）" FontWeight="Medium" Foreground="{DynamicResource TextPrimaryBrush}" />
+                        <TextBlock Text="{Binding AntigravityVersionText}" Style="{StaticResource SecondaryLabelStyle}" Margin="0,3,0,0"
+                                   Visibility="{Binding AntigravityVersionText, Converter={StaticResource StringNotEmptyToVisibilityConverter}, FallbackValue=Collapsed}" />
+                        <TextBlock Text="{Binding AntigravityPathText}" Style="{StaticResource SecondaryLabelStyle}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" ToolTip="{Binding AntigravityPathText}" />
                     </StackPanel>
-                    <Button Grid.Column="1" Content="在文件资源管理器中显示" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding RevealDataDirectoryCommand}" />
-                </Grid>
+                </StackPanel>
             </Border>
         </StackPanel>
     </ScrollViewer>

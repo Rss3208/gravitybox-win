@@ -1,6 +1,7 @@
 <Application x:Class="GravityBox.App.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:core="clr-namespace:GravityBox.App.Core"
              xmlns:vm="clr-namespace:GravityBox.App.ViewModels"
              xmlns:pages="clr-namespace:GravityBox.App.Views.Pages"
              ShutdownMode="OnExplicitShutdown">
@@ -12,6 +13,10 @@
             </ResourceDictionary.MergedDictionaries>
 
             <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+            <core:EqualsParamConverter x:Key="EqualsParamConverter" />
+            <core:EqualsVisibilityConverter x:Key="EqualsVisibilityConverter" />
+            <core:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter" />
+            <core:StringNotEmptyToVisibilityConverter x:Key="StringNotEmptyToVisibilityConverter" />
 
             <DataTemplate DataType="{x:Type vm:OverviewViewModel}">
                 <pages:OverviewPage />

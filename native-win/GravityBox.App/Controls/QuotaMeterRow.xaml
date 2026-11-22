@@ -44,8 +44,7 @@
                 ClipToBounds="True">
             <Border x:Name="FillBar"
                     HorizontalAlignment="Left"
-                    CornerRadius="3"
-                    Background="{Binding BarBrush, ElementName=Root}" />
+                    CornerRadius="3" />
         </Border>
     </Grid>
 </UserControl>

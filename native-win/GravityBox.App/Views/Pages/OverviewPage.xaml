@@ -50,7 +50,7 @@
                 </Grid>
             </Border>
 
-            <!-- Hero Account Card -->
+            <!-- Hero Account & Quota Card -->
             <Border Style="{StaticResource CardContainerStyle}" Margin="0,0,0,12">
                 <StackPanel>
                     <Grid Margin="0,0,0,10">
@@ -59,20 +59,41 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0">
-                            <TextBlock Text="{Binding HeroAccountName}" Style="{StaticResource CardTitleStyle}" FontSize="16" />
-                            <TextBlock Text="{Binding HeroAccountEmail}" Style="{StaticResource SecondaryLabelStyle}" Margin="0,2,0,0" />
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding HeroAccountName}" Style="{StaticResource CardTitleStyle}" FontSize="16" VerticalAlignment="Center" />
+                                <Border Style="{StaticResource PillBadgeStyle}" Margin="8,0,0,0"
+                                        Visibility="{Binding HeroAccountTier, Converter={StaticResource StringNotEmptyToVisibilityConverter}, FallbackValue=Collapsed}">
+                                    <TextBlock Text="{Binding HeroAccountTier}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource AccentBlueBrush}" />
+                                </Border>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                <TextBlock Text="{Binding HeroAccountEmail}" Style="{StaticResource SecondaryLabelStyle}" />
+                                <TextBlock Text="{Binding HeroStatusNote}" Style="{StaticResource SecondaryLabelStyle}" Margin="8,0,0,0"
+                                           Visibility="{Binding HeroStatusNote, Converter={StaticResource StringNotEmptyToVisibilityConverter}, FallbackValue=Collapsed}" />
+                            </StackPanel>
                         </StackPanel>
-                        <Border Grid.Column="1" Style="{StaticResource PillBadgeStyle}">
-                            <TextBlock Text="{Binding HeroAccountTier}" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource AccentBlueBrush}" />
-                        </Border>
+                        <Button Grid.Column="1" Content="刷新配额" Style="{StaticResource SecondaryButtonStyle}" VerticalAlignment="Center" Command="{Binding RefreshActiveQuotaCommand}" />
                     </Grid>
+
+                    <TextBlock Text="暂无可用配额窗口，请启动 Antigravity 或前往「账号」页保存账号"
+                               Style="{StaticResource SecondaryLabelStyle}"
+                               Visibility="{Binding HasQuotaBars, Converter={StaticResource InverseBooleanToVisibilityConverter}, FallbackValue=Collapsed}"
+                               Margin="0,2,0,2" />
+
                     <ItemsControl ItemsSource="{Binding QuotaBars}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <UniformGrid Columns="2" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <controls:QuotaMeterRow Title="{Binding Title}"
-                                                        Percentage="{Binding Percentage}"
-                                                        RemainingText="{Binding RemainingText}"
-                                                        ResetText="{Binding ResetText}" />
+                                <Border Margin="0,2,14,4">
+                                    <controls:QuotaMeterRow Title="{Binding Title}"
+                                                            Percentage="{Binding Percentage}"
+                                                            RemainingText="{Binding RemainingText}"
+                                                            ResetText="{Binding ResetText}" />
+                                </Border>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
@@ -90,20 +111,23 @@
                 </Grid.ColumnDefinitions>
                 <Border Grid.Column="0" Style="{StaticResource CardContainerStyle}">
                     <StackPanel>
-                        <TextBlock Text="今日 Token" Style="{StaticResource SecondaryLabelStyle}" />
-                        <TextBlock Text="{Binding TodayTokensText}" Style="{StaticResource TabularTextStyle}" FontSize="20" FontWeight="SemiBold" Margin="0,4,0,0" />
+                        <TextBlock Text="今日 Token 用量" Style="{StaticResource SecondaryLabelStyle}" />
+                        <TextBlock Text="{Binding TodayTokensText}" Style="{StaticResource TabularTextStyle}" FontSize="22" FontWeight="SemiBold" Margin="0,4,0,2" />
+                        <TextBlock Text="{Binding TotalTokensSubtext}" Style="{StaticResource SecondaryLabelStyle}" FontSize="11.5" />
                     </StackPanel>
                 </Border>
                 <Border Grid.Column="2" Style="{StaticResource CardContainerStyle}">
                     <StackPanel>
-                        <TextBlock Text="今日请求" Style="{StaticResource SecondaryLabelStyle}" />
-                        <TextBlock Text="{Binding TodayRequestsText}" Style="{StaticResource TabularTextStyle}" FontSize="20" FontWeight="SemiBold" Margin="0,4,0,0" />
+                        <TextBlock Text="今日费用估算" Style="{StaticResource SecondaryLabelStyle}" />
+                        <TextBlock Text="{Binding TodayCostText}" Style="{StaticResource TabularTextStyle}" FontSize="22" FontWeight="SemiBold" Margin="0,4,0,2" />
+                        <TextBlock Text="{Binding TotalCostSubtext}" Style="{StaticResource SecondaryLabelStyle}" FontSize="11.5" />
                     </StackPanel>
                 </Border>
                 <Border Grid.Column="4" Style="{StaticResource CardContainerStyle}">
                     <StackPanel>
-                        <TextBlock Text="等效费用" Style="{StaticResource SecondaryLabelStyle}" />
-                        <TextBlock Text="{Binding TodayCostText}" Style="{StaticResource TabularTextStyle}" FontSize="20" FontWeight="SemiBold" Margin="0,4,0,0" />
+                        <TextBlock Text="今日请求数" Style="{StaticResource SecondaryLabelStyle}" />
+                        <TextBlock Text="{Binding TodayRequestsText}" Style="{StaticResource TabularTextStyle}" FontSize="22" FontWeight="SemiBold" Margin="0,4,0,2" />
+                        <TextBlock Text="{Binding TotalRequestsSubtext}" Style="{StaticResource SecondaryLabelStyle}" FontSize="11.5" />
                     </StackPanel>
                 </Border>
             </Grid>
@@ -117,24 +141,61 @@
                 </Grid.ColumnDefinitions>
                 <Border Grid.Column="0" Style="{StaticResource CardContainerStyle}">
                     <StackPanel>
-                        <TextBlock Text="24 小时消耗趋势" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,10" />
-                        <controls:UsageTrendChart Height="140" Points="{Binding TrendPoints}" />
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="今日时段消耗" Style="{StaticResource CardTitleStyle}" />
+                            <Border Grid.Column="1" Style="{StaticResource PillBadgeStyle}">
+                                <TextBlock Text="{Binding TrendBadgeText}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" />
+                            </Border>
+                        </Grid>
+                        <controls:UsageTrendChart Height="145" Points="{Binding TrendPoints}" />
                     </StackPanel>
                 </Border>
                 <Border Grid.Column="2" Style="{StaticResource CardContainerStyle}">
                     <StackPanel>
-                        <TextBlock Text="今日活跃模型" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,10" />
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="今日活跃模型" Style="{StaticResource CardTitleStyle}" />
+                            <Border Grid.Column="1" Style="{StaticResource PillBadgeStyle}">
+                                <TextBlock Text="{Binding ActiveModelsBadgeText}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" />
+                            </Border>
+                        </Grid>
+
+                        <TextBlock Text="今日暂无模型调用，在 Antigravity 发起对话后显示"
+                                   Style="{StaticResource SecondaryLabelStyle}"
+                                   TextWrapping="Wrap"
+                                   Visibility="{Binding HasActiveModels, Converter={StaticResource InverseBooleanToVisibilityConverter}, FallbackValue=Collapsed}"
+                                   Margin="0,6,0,0" />
+
                         <ItemsControl ItemsSource="{Binding ActiveModels}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Grid Margin="0,4">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="{Binding ModelName}" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Grid.Column="1" Text="{Binding TokensText}" Style="{StaticResource TabularTextStyle}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
-                                    </Grid>
+                                    <Border Style="{StaticResource SubCardContainerStyle}" Padding="10,8" Margin="0,0,0,6">
+                                        <StackPanel>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{Binding ModelName}" FontSize="12.5" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" ToolTip="{Binding ModelName}" />
+                                                <TextBlock Grid.Column="1" Text="{Binding TokensText}" Style="{StaticResource TabularTextStyle}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="8,0,0,0" />
+                                            </Grid>
+                                            <Grid Margin="0,2,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{Binding SubtitleText}" Style="{StaticResource SecondaryLabelStyle}" FontSize="11" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Grid.Column="1" Text="{Binding CostText}" Style="{StaticResource TabularTextStyle}" FontSize="11" Foreground="{DynamicResource AccentBlueBrush}" Margin="8,0,0,0" />
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>

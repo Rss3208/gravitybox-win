@@ -43,36 +43,31 @@
 
                 <!-- 5 Navigation Items -->
                 <StackPanel Grid.Row="1">
-                    <Button Content="{Binding NavOverviewText}"
-                            Style="{StaticResource SecondaryButtonStyle}"
-                            HorizontalContentAlignment="Left"
-                            Margin="0,0,0,6"
-                            Command="{Binding NavigateToCommand}"
-                            CommandParameter="0" />
-                    <Button Content="{Binding NavAccountsText}"
-                            Style="{StaticResource SecondaryButtonStyle}"
-                            HorizontalContentAlignment="Left"
-                            Margin="0,0,0,6"
-                            Command="{Binding NavigateToCommand}"
-                            CommandParameter="1" />
-                    <Button Content="{Binding NavUsageText}"
-                            Style="{StaticResource SecondaryButtonStyle}"
-                            HorizontalContentAlignment="Left"
-                            Margin="0,0,0,6"
-                            Command="{Binding NavigateToCommand}"
-                            CommandParameter="2" />
-                    <Button Content="{Binding NavSettingsText}"
-                            Style="{StaticResource SecondaryButtonStyle}"
-                            HorizontalContentAlignment="Left"
-                            Margin="0,0,0,6"
-                            Command="{Binding NavigateToCommand}"
-                            CommandParameter="3" />
-                    <Button Content="{Binding NavAboutText}"
-                            Style="{StaticResource SecondaryButtonStyle}"
-                            HorizontalContentAlignment="Left"
-                            Margin="0,0,0,6"
-                            Command="{Binding NavigateToCommand}"
-                            CommandParameter="4" />
+                    <RadioButton Content="{Binding NavOverviewText}"
+                                 Style="{StaticResource NavItemRadioStyle}"
+                                 IsChecked="{Binding SelectedPageIndex, Converter={StaticResource EqualsParamConverter}, ConverterParameter=0, Mode=OneWay}"
+                                 Command="{Binding NavigateToCommand}"
+                                 CommandParameter="0" />
+                    <RadioButton Content="{Binding NavAccountsText}"
+                                 Style="{StaticResource NavItemRadioStyle}"
+                                 IsChecked="{Binding SelectedPageIndex, Converter={StaticResource EqualsParamConverter}, ConverterParameter=1, Mode=OneWay}"
+                                 Command="{Binding NavigateToCommand}"
+                                 CommandParameter="1" />
+                    <RadioButton Content="{Binding NavUsageText}"
+                                 Style="{StaticResource NavItemRadioStyle}"
+                                 IsChecked="{Binding SelectedPageIndex, Converter={StaticResource EqualsParamConverter}, ConverterParameter=2, Mode=OneWay}"
+                                 Command="{Binding NavigateToCommand}"
+                                 CommandParameter="2" />
+                    <RadioButton Content="{Binding NavSettingsText}"
+                                 Style="{StaticResource NavItemRadioStyle}"
+                                 IsChecked="{Binding SelectedPageIndex, Converter={StaticResource EqualsParamConverter}, ConverterParameter=3, Mode=OneWay}"
+                                 Command="{Binding NavigateToCommand}"
+                                 CommandParameter="3" />
+                    <RadioButton Content="{Binding NavAboutText}"
+                                 Style="{StaticResource NavItemRadioStyle}"
+                                 IsChecked="{Binding SelectedPageIndex, Converter={StaticResource EqualsParamConverter}, ConverterParameter=4, Mode=OneWay}"
+                                 Command="{Binding NavigateToCommand}"
+                                 CommandParameter="4" />
                 </StackPanel>
 
                 <!-- Bottom Action & Status Footnote -->

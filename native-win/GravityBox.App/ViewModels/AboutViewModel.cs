@@ -14,12 +14,19 @@ public sealed partial class AboutViewModel : ObservableObject
     private readonly ConfigurationStore _config;
     private readonly L10nService _l10n;
     private readonly AppUpdateManager _updateManager;
+    private readonly IBackendBridge? _bridge;
 
     [ObservableProperty]
     private string _versionText = "1.1.3";
 
     [ObservableProperty]
     private string _dataDirectory;
+
+    [ObservableProperty]
+    private string _antigravityPathText = "检测中…";
+
+    [ObservableProperty]
+    private string _antigravityVersionText = string.Empty;
 
     [ObservableProperty]
     private bool _autoUpdateEnabled;
@@ -33,28 +40,58 @@ public sealed partial class AboutViewModel : ObservableObject
     [ObservableProperty]
     private bool _hasUpdateAvailable;
 
-    public AboutViewModel(ConfigurationStore config, L10nService l10n, AppUpdateManager updateManager)
+    public AboutViewModel(ConfigurationStore config, L10nService l10n, AppUpdateManager updateManager, IBackendBridge? bridge = null)
     {
         _config = config ?? throw new ArgumentNullException(nameof(config));
         _l10n = l10n ?? throw new ArgumentNullException(nameof(l10n));
         _updateManager = updateManager ?? throw new ArgumentNullException(nameof(updateManager));
+        _bridge = bridge;
 
         _versionText = _updateManager.CurrentVersion;
         _dataDirectory = _config.StateDirectory;
         _autoUpdateEnabled = _config.Value.AutoUpdateEnabled;
-        _updateStatusText = $"当前版本 {_versionText}";
+        _updateStatusText = $"当前已是最新版本 ({_versionText})";
 
         _updateManager.StateChanged += () =>
         {
-            UpdateStatusText = _updateManager.StatusMessage;
-            DownloadProgress = _updateManager.DownloadProgress;
-            HasUpdateAvailable = _updateManager.Status == UpdateStatusKind.Available;
+            UiDispatch.Run(() =>
+            {
+                UpdateStatusText = _updateManager.StatusMessage;
+                DownloadProgress = _updateManager.DownloadProgress;
+                HasUpdateAvailable = _updateManager.Status == UpdateStatusKind.Available;
+            });
         };
     }
 
     partial void OnAutoUpdateEnabledChanged(bool value)
     {
         _config.Update(c => c.AutoUpdateEnabled = value);
+    }
+
+    public async Task RefreshAsync(CancellationToken cancellationToken = default)
+    {
+        if (_bridge == null) return;
+        try
+        {
+            var infoTask = _bridge.SendAsync("platform_info", cancellationToken: cancellationToken);
+            var statusTask = _bridge.SendAsync("status", new System.Text.Json.Nodes.JsonObject { ["includeTasks"] = false, ["includeAccounts"] = false }, cancellationToken: cancellationToken);
+            await Task.WhenAll(infoTask, statusTask).ConfigureAwait(false);
+
+            string exe = infoTask.Result["executablePath"].AsString() ?? "未检测到";
+            var st = statusTask.Result["status"]?.AsObject();
+            string ver = st?["appVersion"].AsString() ?? "未知";
+            string entries = st?["entries"].AsInt64(0).ToString("N0") ?? "0";
+
+            UiDispatch.Run(() =>
+            {
+                AntigravityPathText = exe;
+                AntigravityVersionText = $"Antigravity {ver} · 本地词典 {entries} 条";
+            });
+        }
+        catch
+        {
+            // Optional diagnostic metadata
+        }
     }
 
     [RelayCommand]
@@ -69,6 +106,19 @@ public sealed partial class AboutViewModel : ObservableObject
         if (Directory.Exists(DataDirectory))
         {
             Process.Start(new ProcessStartInfo("explorer.exe", DataDirectory) { UseShellExecute = true });
+        }
+    }
+
+    [RelayCommand]
+    public void OpenReleasesPage()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo("https://github.com/gravitybox-dev/GravityBox/releases") { UseShellExecute = true });
+        }
+        catch
+        {
+            // Ignore shell launch error
         }
     }
 }

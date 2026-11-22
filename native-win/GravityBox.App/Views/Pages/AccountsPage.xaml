@@ -4,6 +4,7 @@
              xmlns:controls="clr-namespace:GravityBox.App.Controls">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel>
+            <!-- Top Header Bar (matches macOS accounts.png) -->
             <Grid Margin="0,0,0,14">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -11,11 +12,42 @@
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Text="账号" Style="{StaticResource PageTitleStyle}" />
                 <StackPanel Grid.Column="1" Orientation="Horizontal">
-                    <Button Content="保存当前账号" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,8,0" Command="{Binding SaveCurrentAccountCommand}" />
-                    <Button Content="添加账号…" Style="{StaticResource PrimaryButtonStyle}" Margin="0,0,8,0" Click="OnAddAccountClick" />
-                    <Button Content="智能推荐策略" Style="{StaticResource SecondaryButtonStyle}" Click="OnPolicyClick" />
+                    <Button Content="{Binding CollapseToggleText}"
+                            Style="{StaticResource SecondaryButtonStyle}"
+                            Margin="0,0,8,0"
+                            Visibility="{Binding HasAccounts, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}"
+                            Command="{Binding ToggleCollapseAllCommand}" />
+                    <Button Content="刷新配额"
+                            Style="{StaticResource SecondaryButtonStyle}"
+                            Margin="0,0,8,0"
+                            Visibility="{Binding HasAccounts, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}"
+                            Command="{Binding RefreshAllQuotasCommand}" />
+                    <Button Content="保存当前账号"
+                            Style="{StaticResource SecondaryButtonStyle}"
+                            Margin="0,0,8,0"
+                            Command="{Binding SaveCurrentAccountCommand}" />
+                    <Button Content="管理账号…"
+                            Style="{StaticResource PrimaryButtonStyle}"
+                            Click="OnAddAccountClick" />
                 </StackPanel>
             </Grid>
+
+            <!-- Status Toast / Error Banner -->
+            <Border Background="{DynamicResource AccentBlueSoftBrush}"
+                    CornerRadius="12"
+                    Padding="12,8"
+                    Margin="0,0,0,10"
+                    Visibility="{Binding StatusToast, Converter={StaticResource StringNotEmptyToVisibilityConverter}, FallbackValue=Collapsed}">
+                <TextBlock Text="{Binding StatusToast}" Foreground="{DynamicResource AccentBlueBrush}" FontSize="12.5" FontWeight="Medium" />
+            </Border>
+
+            <Border Background="{DynamicResource WarningSoftBrush}"
+                    CornerRadius="12"
+                    Padding="12,8"
+                    Margin="0,0,0,10"
+                    Visibility="{Binding ErrorBanner, Converter={StaticResource StringNotEmptyToVisibilityConverter}, FallbackValue=Collapsed}">
+                <TextBlock Text="{Binding ErrorBanner}" Foreground="{DynamicResource WarningTextBrush}" FontSize="12.5" TextWrapping="Wrap" />
+            </Border>
 
             <!-- Rollback Banner -->
             <Border Background="{DynamicResource AccentBlueSoftBrush}"
@@ -33,39 +65,131 @@
                 </Grid>
             </Border>
 
+            <!-- Standby / Smart Recommendation Strategy Card (matches macOS accounts.png) -->
+            <Border Style="{StaticResource CardContainerStyle}" Margin="0,0,0,12">
+                <StackPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="备用推荐" Style="{StaticResource CardTitleStyle}" VerticalAlignment="Center" />
+                                <Border Style="{StaticResource PillBadgeStyle}" Margin="8,0,0,0">
+                                    <TextBlock Text="{Binding PolicyStatusBadgeText}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource AccentBlueBrush}" />
+                                </Border>
+                            </StackPanel>
+                            <TextBlock Text="{Binding PolicySummaryText}" Style="{StaticResource SecondaryLabelStyle}" Margin="0,4,0,0" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding RecommendedAccountBanner}"
+                                       FontSize="12"
+                                       FontWeight="Medium"
+                                       Foreground="{DynamicResource AccentBlueBrush}"
+                                       Margin="0,4,0,0"
+                                       Visibility="{Binding RecommendedAccountBanner, Converter={StaticResource StringNotEmptyToVisibilityConverter}, FallbackValue=Collapsed}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button Content="配置…" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,10,0" Click="OnPolicyClick" />
+                            <CheckBox Style="{StaticResource DesignSwitchStyle}"
+                                      IsChecked="{Binding AutoSwitchEnabled, Mode=TwoWay}"
+                                      Command="{Binding ToggleAutoSwitchCommand}" />
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Empty State Onboarding Card (shown when 0 accounts saved) -->
+            <Border Style="{StaticResource CardContainerStyle}"
+                    Margin="0,0,0,12"
+                    Visibility="{Binding HasAccounts, Converter={StaticResource InverseBooleanToVisibilityConverter}, FallbackValue=Visible}">
+                <StackPanel>
+                    <Border Background="{DynamicResource AccentBlueSoftBrush}"
+                            CornerRadius="10"
+                            Padding="12,10"
+                            Margin="0,0,0,14"
+                            Visibility="{Binding HasDetectedLiveAccount, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                <TextBlock Text="检测到 Antigravity 当前登录账号" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource AccentBlueBrush}" />
+                                <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                    <TextBlock Text="{Binding DetectedLiveEmail}" FontSize="13" FontWeight="Medium" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                    <Border Style="{StaticResource PillBadgeStyle}" Margin="8,0,0,0"
+                                            Visibility="{Binding DetectedLiveTier, Converter={StaticResource StringNotEmptyToVisibilityConverter}, FallbackValue=Collapsed}">
+                                        <TextBlock Text="{Binding DetectedLiveTier}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource AccentBlueBrush}" />
+                                    </Border>
+                                </StackPanel>
+                            </StackPanel>
+                            <Button Grid.Column="1"
+                                    Content="保存为托管账号"
+                                    Style="{StaticResource PrimaryButtonStyle}"
+                                    VerticalAlignment="Center"
+                                    Command="{Binding SaveCurrentAccountCommand}" />
+                        </Grid>
+                    </Border>
+
+                    <TextBlock Text="尚未保存任何账号" Style="{StaticResource CardTitleStyle}" FontSize="16" />
+                    <TextBlock Text="保存当前账号或导入备用账号后，即可在这里集中查看各账号多周期配额余量、一键安全无损切号，并在配额将尽时自动推荐最优备用账号。"
+                               Style="{StaticResource SecondaryLabelStyle}"
+                               TextWrapping="Wrap"
+                               Margin="0,6,0,14" />
+
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="保存当前 Antigravity 账号" Style="{StaticResource PrimaryButtonStyle}" Margin="0,0,8,0" Command="{Binding SaveCurrentAccountCommand}" />
+                        <Button Content="导入 JSON 文件…" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,8,0" Click="OnImportJsonClick" />
+                        <Button Content="管理与 Token 登录…" Style="{StaticResource SecondaryButtonStyle}" Click="OnAddAccountClick" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Account Cards List -->
             <ItemsControl ItemsSource="{Binding Accounts}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <Border Style="{StaticResource CardContainerStyle}" Margin="0,0,0,10">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="8" />
-                                    <RowDefinition Height="Auto" />
-                                </Grid.RowDefinitions>
-
-                                <Grid Grid.Row="0">
+                            <StackPanel>
+                                <!-- Card Header -->
+                                <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" Orientation="Horizontal">
-                                        <TextBlock Text="{Binding Name}" Style="{StaticResource CardTitleStyle}" VerticalAlignment="Center" />
-                                        <TextBlock Text="{Binding Email}" Style="{StaticResource SecondaryLabelStyle}" Margin="8,0,0,0" VerticalAlignment="Center" />
-                                        <Border Style="{StaticResource PillBadgeStyle}" Margin="8,0,0,0">
-                                            <TextBlock Text="{Binding Tier}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource AccentBlueBrush}" />
-                                        </Border>
-                                        <Border Style="{StaticResource PillBadgeStyle}" Margin="6,0,0,0"
-                                                Visibility="{Binding StandbyDeferred, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}">
-                                            <TextBlock Text="{Binding StandbyBadgeText}" FontSize="11" Foreground="{DynamicResource WarningTextBrush}" />
-                                        </Border>
+                                    <StackPanel Grid.Column="0">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Name}" Style="{StaticResource CardTitleStyle}" VerticalAlignment="Center" />
+                                            <Border Style="{StaticResource PillBadgeStyle}" Margin="8,0,0,0"
+                                                    Visibility="{Binding Tier, Converter={StaticResource StringNotEmptyToVisibilityConverter}, FallbackValue=Collapsed}">
+                                                <TextBlock Text="{Binding Tier}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource AccentBlueBrush}" />
+                                            </Border>
+                                            <Border Background="{DynamicResource SuccessSoftBrush}" CornerRadius="999" Padding="8,3" Margin="6,0,0,0"
+                                                    Visibility="{Binding IsActive, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}">
+                                                <TextBlock Text="当前使用" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource SuccessBrush}" />
+                                            </Border>
+                                            <Border Background="{DynamicResource AccentBlueSoftBrush}" CornerRadius="999" Padding="8,3" Margin="6,0,0,0"
+                                                    Visibility="{Binding IsRecommended, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}">
+                                                <TextBlock Text="推荐备用" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource AccentBlueBrush}" />
+                                            </Border>
+                                            <Border Style="{StaticResource PillBadgeStyle}" Margin="6,0,0,0"
+                                                    Visibility="{Binding StandbyDeferred, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}">
+                                                <TextBlock Text="{Binding StandbyBadgeText}" FontSize="11" Foreground="{DynamicResource WarningTextBrush}" />
+                                            </Border>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+                                            <TextBlock Text="{Binding Email}" Style="{StaticResource SecondaryLabelStyle}" />
+                                            <TextBlock Text="{Binding UpdatedAtText}" Style="{StaticResource SecondaryLabelStyle}" Margin="8,0,0,0"
+                                                       Visibility="{Binding UpdatedAtText, Converter={StaticResource StringNotEmptyToVisibilityConverter}, FallbackValue=Collapsed}" />
+                                        </StackPanel>
                                     </StackPanel>
 
-                                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                         <Button Content="刷新" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,6,0"
                                                 Command="{Binding DataContext.RefreshQuotaCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                 CommandParameter="{Binding Id}" />
-                                        <Button Content="切换" Style="{StaticResource PrimaryButtonStyle}" Margin="0,0,6,0"
+                                        <Button Content="切换账号" Style="{StaticResource PrimaryButtonStyle}" Margin="0,0,6,0"
+                                                Visibility="{Binding IsActive, Converter={StaticResource InverseBooleanToVisibilityConverter}, FallbackValue=Visible}"
                                                 Command="{Binding DataContext.SwitchAccountCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                 CommandParameter="{Binding Id}" />
                                         <Button Content="删除" Style="{StaticResource SecondaryButtonStyle}"
@@ -74,11 +198,42 @@
                                     </StackPanel>
                                 </Grid>
 
-                                <controls:QuotaMeterRow Grid.Row="2"
-                                                        Title="5 小时配额"
-                                                        Percentage="{Binding FiveHourPct}"
-                                                        ResetText="{Binding ResetText}" />
-                            </Grid>
+                                <!-- Collapsed Summary Line -->
+                                <TextBlock Text="{Binding CollapsedSummaryText}"
+                                           Style="{StaticResource SecondaryLabelStyle}"
+                                           Margin="0,8,0,0"
+                                           Visibility="{Binding DataContext.AllCollapsed, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}" />
+
+                                <!-- Expanded Multi-Window Quota Grid (2-column matching macOS accounts.png) -->
+                                <StackPanel Margin="0,10,0,0"
+                                            Visibility="{Binding DataContext.AllCollapsed, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource InverseBooleanToVisibilityConverter}, FallbackValue=Visible}">
+                                    <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="0,0,0,8" />
+
+                                    <TextBlock Text="{Binding QuotaError}"
+                                               Foreground="{DynamicResource WarningTextBrush}"
+                                               FontSize="11.5"
+                                               Margin="0,0,0,6"
+                                               Visibility="{Binding QuotaError, Converter={StaticResource StringNotEmptyToVisibilityConverter}, FallbackValue=Collapsed}" />
+
+                                    <ItemsControl ItemsSource="{Binding QuotaBars}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <UniformGrid Columns="2" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Margin="0,2,14,4">
+                                                    <controls:QuotaMeterRow Title="{Binding Title}"
+                                                                            Percentage="{Binding Percentage}"
+                                                                            RemainingText="{Binding RemainingText}"
+                                                                            ResetText="{Binding ResetText}" />
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </StackPanel>
                         </Border>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
