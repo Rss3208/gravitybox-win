@@ -37,6 +37,7 @@ import type {
   VerifiedBundleInfo,
   WinHelperClientLike,
 } from './types.js';
+import { getSharedWinHelperClient } from './win-helper-client.js';
 
 export class Win32CredentialAdapter implements KeychainAdapter {
   constructor(private getHelper: () => WinHelperClientLike | null) {}
@@ -114,7 +115,7 @@ export function createWin32PlatformAdapter(options: Win32PlatformOptions = {}): 
       cachedHelper = options.helperFactory();
       return cachedHelper;
     }
-    return null;
+    return getSharedWinHelperClient();
   };
 
   return {

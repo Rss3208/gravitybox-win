@@ -132,6 +132,7 @@ export class WinHelperClient implements WinHelperClientLike {
         reject: rejectReq,
         timer,
       });
+      this.syncChildRef();
 
       try {
         child.stdin.write(payload, 'utf8', err => {
@@ -205,6 +206,7 @@ export class WinHelperClient implements WinHelperClientLike {
     });
 
     this.child = proc;
+    this.syncChildRef();
 
     proc.stdout.on('data', (chunk: Buffer) => {
       this.stdoutBuffer += this.decoder.write(chunk);
@@ -249,6 +251,7 @@ export class WinHelperClient implements WinHelperClientLike {
     if (!entry) return;
     clearTimeout(entry.timer);
     this.pending.delete(id);
+    this.syncChildRef();
     this.refreshIdleTimer();
 
     if (parsed.ok === false) {
@@ -264,6 +267,26 @@ export class WinHelperClient implements WinHelperClientLike {
       entry.reject(error);
     }
     this.pending.clear();
+    this.syncChildRef();
+  }
+
+  private syncChildRef(): void {
+    const proc = this.child as any;
+    if (!proc) return;
+    const active = this.pending.size > 0;
+    try {
+      if (active) {
+        proc.ref?.();
+        proc.stdin?.ref?.();
+        proc.stdout?.ref?.();
+        proc.stderr?.ref?.();
+      } else {
+        proc.unref?.();
+        proc.stdin?.unref?.();
+        proc.stdout?.unref?.();
+        proc.stderr?.unref?.();
+      }
+    } catch {}
   }
 
   private refreshIdleTimer(): void {

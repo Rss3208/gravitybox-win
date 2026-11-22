@@ -1,12 +1,13 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { mkdir, readFile, stat as fsStat, writeFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { openAsarArchive } from './asar.js';
 import { assertLoopback } from './cdp.js';
 import { targetForApp } from './application-target.js';
 import { bt } from './i18n.js';
+import { getPlatform } from './platform/index.js';
+
 const execFileRaw = promisify(execFile);
 const execute = (file: string, args: string[], timeout = 3000) => execFileRaw(file, args, { timeout });
 export type Endpoint = { port: number; pid: number; browserURL: string; appVersion: string; legacyPatch: boolean; appPath?: string; profile?: string };
@@ -24,6 +25,11 @@ export function parseListeners(stdout: string, port: number): { pid: number; nam
   return results.filter(owner => owner.names.length > 0);
 }
 
+function isLoopbackHost(address: string): boolean {
+  const clean = (address || '').trim().replace(/^\[|\]$/g, '').toLowerCase();
+  return clean === '127.0.0.1' || clean === '::1';
+}
+
 type PersistedBundleEntry = {
   value: { version: string; legacyPatch: boolean };
   verifiedAt: number;
@@ -39,14 +45,25 @@ type PersistedBundleEntry = {
 
 const bundleCache = new Map<string, PersistedBundleEntry & { expiresAt: number; hardExpiresAt: number }>();
 const inFlightBundleInspect = new Map<string, Promise<{ version: string; legacyPatch: boolean }>>();
-const BUNDLE_DISK_CACHE_PATH = join(homedir(), 'Library', 'Caches', 'GravityBox', 'bundle-verify-cache-v1.json');
 let diskBundleCacheLoaded = false;
+
+function getBundleDiskCachePath(): string {
+  return join(getPlatform().getDefaultPaths().cacheDir, 'bundle-verify-cache-v1.json');
+}
+
+export function clearDiscoveryCachesForTests(options?: { skipDiskLoad?: boolean }): void {
+  bundleCache.clear();
+  inFlightBundleInspect.clear();
+  verifiedPortCache.clear();
+  verifiedLsPidPortsCache.clear();
+  diskBundleCacheLoaded = options?.skipDiskLoad === true;
+}
 
 async function ensureDiskBundleCacheLoaded(): Promise<void> {
   if (diskBundleCacheLoaded) return;
   diskBundleCacheLoaded = true;
   try {
-    const parsed = JSON.parse(await readFile(BUNDLE_DISK_CACHE_PATH, 'utf8'));
+    const parsed = JSON.parse(await readFile(getBundleDiskCachePath(), 'utf8'));
     if (!parsed || parsed.schema !== 1 || typeof parsed.entries !== 'object' || !parsed.entries) return;
     const now = Date.now();
     for (const [k, raw] of Object.entries<any>(parsed.entries)) {
@@ -69,13 +86,14 @@ async function ensureDiskBundleCacheLoaded(): Promise<void> {
 
 async function saveDiskBundleCache(): Promise<void> {
   try {
+    const cachePath = getBundleDiskCachePath();
     const entries: Record<string, PersistedBundleEntry> = {};
     for (const [k, entry] of bundleCache.entries()) {
       const { expiresAt: _e, hardExpiresAt: _h, ...persisted } = entry;
       entries[k] = persisted;
     }
-    await mkdir(dirname(BUNDLE_DISK_CACHE_PATH), { recursive: true, mode: 0o700 });
-    await writeFile(BUNDLE_DISK_CACHE_PATH, JSON.stringify({ schema: 1, entries }) + '\n', { mode: 0o600 });
+    await mkdir(dirname(cachePath), { recursive: true, mode: 0o700 });
+    await writeFile(cachePath, JSON.stringify({ schema: 1, entries }) + '\n', { mode: 0o600 });
   } catch {}
 }
 
@@ -90,6 +108,54 @@ export async function inspectBundle(appPath: string): Promise<{ version: string;
   const work = (async () => {
     await ensureDiskBundleCacheLoaded();
     const target = targetForApp(appPath);
+    const platform = getPlatform();
+
+    if (platform.id === 'win32') {
+      const layout = platform.resolveAppLayout(appPath);
+      const cached = bundleCache.get(appPath);
+      if (cached && cached.hardExpiresAt > Date.now()) {
+        try {
+          const [aStat, eStat] = await Promise.all([
+            fsStat(layout.asarPath),
+            fsStat(layout.executablePath),
+          ]);
+          if (
+            aStat.mtimeMs === cached.asarMtimeMs &&
+            aStat.size === cached.asarSize &&
+            eStat.mtimeMs === cached.execMtimeMs &&
+            eStat.size === cached.execSize
+          ) {
+            cached.expiresAt = Date.now() + 120_000;
+            return cached.value;
+          }
+        } catch {}
+      }
+
+      const verified = await platform.verifyOfficialApp(appPath);
+      const [asarStat, execStat] = await Promise.all([
+        fsStat(layout.asarPath),
+        fsStat(layout.executablePath),
+      ]);
+      const val = { version: verified.version, legacyPatch: verified.legacyPatch };
+      const completedAt = Date.now();
+      bundleCache.set(appPath, {
+        value: val,
+        verifiedAt: completedAt,
+        expiresAt: completedAt + 120_000,
+        hardExpiresAt: completedAt + 24 * 3600_000,
+        plistMtimeMs: 0,
+        plistSize: 0,
+        asarMtimeMs: asarStat.mtimeMs,
+        asarSize: asarStat.size,
+        execMtimeMs: execStat.mtimeMs,
+        execSize: execStat.size,
+        codeResMtimeMs: 0,
+        codeResSize: 0,
+      });
+      void saveDiskBundleCache();
+      return val;
+    }
+
     const plist = join(appPath, 'Contents', 'Info.plist');
     const asarPath = join(appPath, 'Contents', 'Resources', 'app.asar');
     const execPath = join(appPath, 'Contents', 'MacOS', target.executable);
@@ -177,17 +243,42 @@ export async function inspectBundle(appPath: string): Promise<{ version: string;
 async function discoverSingle(appPath: string, profile: string): Promise<Endpoint | undefined> {
   let contents: string;
   try { contents = await readFile(join(profile, 'DevToolsActivePort'), 'utf8'); } catch { return undefined; }
-  const port = Number(contents.split('\n')[0]);
+  const port = Number(contents.split('\n')[0]?.trim());
   if (!Number.isInteger(port) || port < 1 || port > 65535) return undefined;
-  let listeners: string;
-  try { listeners = (await execute('/usr/sbin/lsof', ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN', '-Fpfn'])).stdout; } catch { return undefined; }
-  const owners = parseListeners(listeners, port);
-  if (owners.length !== 1) return undefined;
-  const owner = owners[0]!;
-  let executable: string;
-  try { executable = (await execute('/usr/sbin/lsof', ['-nP', '-a', '-p', String(owner.pid), '-d', 'txt', '-Fn'])).stdout; } catch { return undefined; }
-  const expected = join(appPath, 'Contents', 'MacOS', targetForApp(appPath).executable);
-  if (!executable.split('\n').includes(`n${expected}`)) return undefined;
+
+  const platform = getPlatform();
+  let ownerPid = 0;
+
+  if (platform.id === 'win32') {
+    const listeners = await platform.findTcpListenersByPort(port);
+    if (listeners.length === 0) return undefined;
+    for (const entry of listeners) {
+      if (!isLoopbackHost(entry.localAddress)) {
+        throw new Error(bt('discovery.non_loopback'));
+      }
+    }
+    const uniquePids = Array.from(new Set(listeners.map(l => l.pid)));
+    if (uniquePids.length !== 1) return undefined;
+    ownerPid = uniquePids[0]!;
+    const layout = platform.resolveAppLayout(appPath);
+    const expectedExe = resolve(layout.executablePath).toLowerCase();
+    const ownerExe = listeners.find(l => l.executablePath)?.executablePath ?? '';
+    if (!ownerExe || resolve(ownerExe).toLowerCase() !== expectedExe) {
+      return undefined;
+    }
+  } else {
+    let listeners: string;
+    try { listeners = (await execute('/usr/sbin/lsof', ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN', '-Fpfn'])).stdout; } catch { return undefined; }
+    const owners = parseListeners(listeners, port);
+    if (owners.length !== 1) return undefined;
+    const owner = owners[0]!;
+    ownerPid = owner.pid;
+    let executable: string;
+    try { executable = (await execute('/usr/sbin/lsof', ['-nP', '-a', '-p', String(owner.pid), '-d', 'txt', '-Fn'])).stdout; } catch { return undefined; }
+    const expected = join(appPath, 'Contents', 'MacOS', targetForApp(appPath).executable);
+    if (!executable.split('\n').includes(`n${expected}`)) return undefined;
+  }
+
   const bundle = await inspectBundle(appPath);
   let response: Response;
   try {
@@ -198,7 +289,7 @@ async function discoverSingle(appPath: string, profile: string): Promise<Endpoin
   if (!version.webSocketDebuggerUrl) return undefined;
   const ws = assertLoopback(version.webSocketDebuggerUrl);
   if (Number(ws.port) !== port) throw new Error(bt('discovery.port_mismatch'));
-  return { port, pid: owner.pid, browserURL: ws.href, appVersion: bundle.version, legacyPatch: bundle.legacyPatch, appPath, profile };
+  return { port, pid: ownerPid, browserURL: ws.href, appVersion: bundle.version, legacyPatch: bundle.legacyPatch, appPath, profile };
 }
 
 export async function discover(appPath: string, profile: string): Promise<Endpoint | undefined> {
@@ -213,6 +304,13 @@ export async function isApplicationRunning(appPath: string): Promise<boolean> {
     target = targetForApp(appPath);
   } catch {
     return false;
+  }
+  const platform = getPlatform();
+  if (platform.id === 'win32') {
+    const layout = platform.resolveAppLayout(appPath);
+    const expectedExe = resolve(layout.executablePath).toLowerCase();
+    const processes = await platform.listProcesses('Antigravity');
+    return processes.some(proc => proc.executablePath && resolve(proc.executablePath).toLowerCase() === expectedExe);
   }
   const expectedExecutable = join(appPath, 'Contents', 'MacOS', target.executable);
   try {
@@ -249,6 +347,36 @@ export async function verifyPageService(url: string, appPath: string): Promise<b
   const cached = verifiedPortCache.get(cacheKey);
   if (cached && cached.expiresAt > now) return cached.valid;
 
+  const platform = getPlatform();
+  if (platform.id === 'win32') {
+    try {
+      const listeners = await platform.findTcpListenersByPort(port);
+      if (listeners.length === 0 || !listeners.every(l => isLoopbackHost(l.localAddress))) {
+        verifiedPortCache.delete(cacheKey);
+        return false;
+      }
+      const uniquePids = Array.from(new Set(listeners.map(l => l.pid)));
+      if (uniquePids.length !== 1) {
+        verifiedPortCache.delete(cacheKey);
+        return false;
+      }
+      const layout = platform.resolveAppLayout(appPath);
+      const ownerExe = listeners.find(l => l.executablePath)?.executablePath ?? '';
+      const valid = Boolean(
+        ownerExe &&
+        (resolve(ownerExe).toLowerCase() === resolve(layout.executablePath).toLowerCase() ||
+          resolve(ownerExe).toLowerCase() === resolve(layout.languageServerPath).toLowerCase() ||
+          platform.isStrictSubpath(layout.appRoot, ownerExe))
+      );
+      if (valid) verifiedPortCache.set(cacheKey, { valid: true, expiresAt: now + 60_000 });
+      else verifiedPortCache.delete(cacheKey);
+      return valid;
+    } catch {
+      verifiedPortCache.delete(cacheKey);
+      return false;
+    }
+  }
+
   try {
     const listeners = (await execute('/usr/sbin/lsof', ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN', '-Fpfn'])).stdout;
     const owners = parseListeners(listeners, port);
@@ -276,27 +404,59 @@ export async function verifyPageService(url: string, appPath: string): Promise<b
 const verifiedLsPidPortsCache = new Map<string, { ports: number[]; expiresAt: number }>();
 
 /** Verify the real executable and official bundle before trusting a language-server listener, returning verified loopback IPv4 ports. */
-export async function resolveVerifiedLanguageServerPorts(pid: number, appPath = '/Applications/Antigravity.app'): Promise<number[] | null> {
+export async function resolveVerifiedLanguageServerPorts(pid: number, appPath?: string): Promise<number[] | null> {
   if (!Number.isSafeInteger(pid) || pid <= 0) return null;
-  const cacheKey = `${pid}:${appPath}`;
+  const platform = getPlatform();
+  const effectiveAppPath = appPath ?? (platform.detectInstalledAppPath() || platform.getDefaultPaths().defaultAppCandidates[0] || '/Applications/Antigravity.app');
+  const cacheKey = `${pid}:${effectiveAppPath}`;
   const now = Date.now();
   const cachedPorts = verifiedLsPidPortsCache.get(cacheKey);
   if (cachedPorts && cachedPorts.expiresAt > now) {
-    try {
-      process.kill(pid, 0);
+    if (await platform.isProcessAlive(pid)) {
       return cachedPorts.ports;
+    }
+    verifiedLsPidPortsCache.delete(cacheKey);
+    return null;
+  }
+
+  if (platform.id === 'win32') {
+    try {
+      await inspectBundle(effectiveAppPath);
+      const layout = platform.resolveAppLayout(effectiveAppPath);
+      const listeners = await platform.findTcpListenersByPid(pid);
+      if (listeners.length === 0 || !listeners.every(l => isLoopbackHost(l.localAddress))) {
+        return null;
+      }
+      const ownerExe = listeners.find(l => l.executablePath)?.executablePath ?? '';
+      if (!ownerExe) return null;
+      const exeBase = ownerExe.replace(/\\/g, '/').split('/').pop() || '';
+      const isOfficialLs =
+        resolve(ownerExe).toLowerCase() === resolve(layout.languageServerPath).toLowerCase() ||
+        (platform.isStrictSubpath(layout.appRoot, ownerExe) && layout.languageServerExePattern.test(exeBase));
+      if (!isOfficialLs) return null;
+      const ipv4Ports = Array.from(
+        new Set(
+          listeners
+            .filter(l => l.localAddress.trim() === '127.0.0.1' && Number.isInteger(l.localPort) && l.localPort > 0)
+            .map(l => l.localPort),
+        ),
+      );
+      if (ipv4Ports.length > 0) {
+        verifiedLsPidPortsCache.set(cacheKey, { ports: ipv4Ports, expiresAt: Date.now() + 15_000 });
+      }
+      return ipv4Ports;
     } catch {
-      verifiedLsPidPortsCache.delete(cacheKey);
       return null;
     }
   }
+
   try {
-    await inspectBundle(appPath);
+    await inspectBundle(effectiveAppPath);
     const [execRes, listenerRes] = await Promise.all([
       execute('/usr/sbin/lsof', ['-nP', '-a', '-p', String(pid), '-d', 'txt', '-Fn']),
       execute('/usr/sbin/lsof', ['-nP', '-a', '-p', String(pid), '-iTCP', '-sTCP:LISTEN', '-Fn']),
     ]);
-    if (!execRes.stdout.split('\n').includes('n' + join(appPath, 'Contents/Resources/bin/language_server'))) return null;
+    if (!execRes.stdout.split('\n').includes('n' + join(effectiveAppPath, 'Contents/Resources/bin/language_server'))) return null;
     const listenerOut = listenerRes.stdout;
     const listeners = listenerOut.split('\n').filter(line => line.startsWith('n'));
     if (listeners.length === 0 || !listeners.every(line => /^n(?:127\.0\.0\.1|\[::1\]):\d+$/.test(line))) return null;
@@ -310,5 +470,3 @@ export async function resolveVerifiedLanguageServerPorts(pid: number, appPath = 
     return null;
   }
 }
-
-
