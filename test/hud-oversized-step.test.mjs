@@ -94,9 +94,9 @@ function generationBlob({
   ]);
 }
 
-function createWalDb(t, dir, id, parentId) {
-  const db = new DatabaseSync(path.join(dir, `${id}.db`));
-  t.after(() => db.close());
+function createWalDb(_t, dir, id, parentId = '') {
+  const dbPath = path.join(dir, `${id}.db`);
+  const db = new DatabaseSync(dbPath);
   db.exec(`
     PRAGMA journal_mode = WAL;
     CREATE TABLE steps (
@@ -132,10 +132,12 @@ function createWalDb(t, dir, id, parentId) {
 
 test('oversized write_file step_type=132 does not freeze HUD turns, context/model, or incremental stepPrefixCutoffIdx', async (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gb-hud-oversized-step-'));
-  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
-
   const mainId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
   const db = createWalDb(t, dir, mainId);
+  t.after(() => {
+    try { db.close(); } catch {}
+    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
+  });
   const engine = new ConversationMetricsEngine({ conversationsDir: dir });
 
   // Turn 1: user prompt + Carbon model step + oversized write_file (field 4.3 > 64KB)
@@ -270,12 +272,15 @@ test('oversized write_file step_type=132 does not freeze HUD turns, context/mode
 
 test('subagent step_type=132 with >64KB field 4.8 result still preserves 4.2 & 4.3 and aggregates child DB', async (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gb-hud-oversized-subagent-'));
-  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
-
   const mainId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
   const childId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
   const mainDb = createWalDb(t, dir, mainId);
   const childDb = createWalDb(t, dir, childId, mainId);
+  t.after(() => {
+    try { mainDb.close(); } catch {}
+    try { childDb.close(); } catch {}
+    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
+  });
 
   mainDb.prepare('INSERT INTO steps (idx, step_type, status, metadata) VALUES (0, 14, 3, ?)').run(
     Buffer.from(seconds(1, 1000))
