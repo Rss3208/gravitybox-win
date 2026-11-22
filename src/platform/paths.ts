@@ -65,7 +65,7 @@ export function resolvePlatformPaths(
 }
 
 export function resolveAppLayoutForPlatform(platformId: PlatformId, appPath: string): AppBundleLayout {
-  if (platformId === 'win32') {
+  if (platformId === 'win32' && !appPath.toLowerCase().endsWith('.app')) {
     const p = win32Path;
     const isExe = appPath.toLowerCase().endsWith('.exe');
     const appRoot = isExe ? p.dirname(appPath) : appPath;
@@ -88,19 +88,18 @@ export function resolveAppLayoutForPlatform(platformId: PlatformId, appPath: str
     };
   }
 
-  const p = posixPath;
-  const resourcesDir = p.join(appPath, 'Contents', 'Resources');
-  const binDir = p.join(resourcesDir, 'bin');
+  const resourcesDir = join(appPath, 'Contents', 'Resources');
+  const binDir = join(resourcesDir, 'bin');
   return {
     appRoot: appPath,
-    executablePath: p.join(appPath, 'Contents', 'MacOS', 'Antigravity'),
+    executablePath: join(appPath, 'Contents', 'MacOS', 'Antigravity'),
     resourcesDir,
-    asarPath: p.join(resourcesDir, 'app.asar'),
-    asarUnpackedPath: p.join(resourcesDir, 'app.asar.unpacked'),
+    asarPath: join(resourcesDir, 'app.asar'),
+    asarUnpackedPath: join(resourcesDir, 'app.asar.unpacked'),
     binDir,
-    languageServerPath: p.join(binDir, 'language_server'),
+    languageServerPath: join(binDir, 'language_server'),
     languageServerExePattern: /^language_server$/,
-    versionSourcePath: p.join(appPath, 'Contents', 'Info.plist'),
+    versionSourcePath: join(appPath, 'Contents', 'Info.plist'),
   };
 }
 

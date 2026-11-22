@@ -1,8 +1,9 @@
-import { lstat, readFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { join } from 'node:path';
 import { readOptionalJson } from './files.js';
+import { getPlatform } from './platform/index.js';
 import type { AccountsManager, LiveLanguageServerStatus } from './accounts.js';
 import type { UsageStatsManager } from './usage.js';
 import {
@@ -103,6 +104,8 @@ export function registerObservedModelsFromSource(
 
 export async function readInstalledAppBundleVersion(appPath: string): Promise<string> {
   if (!appPath) return '';
+  const fastVer = await getPlatform().readAppVersionFast(appPath);
+  if (fastVer) return fastVer;
   const plistPath = join(appPath, 'Contents/Info.plist');
   try {
     const raw = await readFile(plistPath, 'utf8');
@@ -111,16 +114,19 @@ export async function readInstalledAppBundleVersion(appPath: string): Promise<st
   } catch {
     return '';
   }
-  try {
-    const { stdout } = await execFileAsync(
-      '/usr/libexec/PlistBuddy',
-      ['-c', 'Print :CFBundleShortVersionString', plistPath],
-      { timeout: 2000 }
-    );
-    return stdout.trim();
-  } catch {
-    return '';
+  if (process.platform === 'darwin') {
+    try {
+      const { stdout } = await execFileAsync(
+        '/usr/libexec/PlistBuddy',
+        ['-c', 'Print :CFBundleShortVersionString', plistPath],
+        { timeout: 2000 }
+      );
+      return stdout.trim();
+    } catch {
+      return '';
+    }
   }
+  return '';
 }
 
 export function sanitizeLiveIdeModelsSnapshot(
@@ -186,8 +192,9 @@ export async function readValidLiveIdeModelsSnapshot(
 ): Promise<LiveIdeModelsSnapshot | null> {
   const cleanInstalled = String(installedAppVersion || '').trim();
   if (!cleanInstalled) return null;
-  const info = await lstat(snapshotPath).catch(() => null);
-  if (!info || !info.isFile() || info.isSymbolicLink() || info.uid !== process.getuid?.()) {
+  try {
+    await getPlatform().assertOwnedPath(snapshotPath, 'file');
+  } catch {
     return null;
   }
   const data = await readOptionalJson<LiveIdeModelsSnapshot>(snapshotPath, 'live-ide-models.json');

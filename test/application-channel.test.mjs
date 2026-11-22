@@ -106,7 +106,9 @@ test('仅统计正式版会话库，排除 Insiders、备份、IDE 和符号链�
     await writeFile(join(root, name, 'conversations', 'same.db'), 'synthetic');
     await writeFile(join(root, name, 'token_usage_archive.db'), 'synthetic');
   }
-  await symlink(join(root, 'antigravity-backup', 'conversations', 'same.db'), join(root, 'antigravity-insiders', 'conversations', 'linked.db'));
+  await symlink(join(root, 'antigravity-backup', 'conversations', 'same.db'), join(root, 'antigravity-insiders', 'conversations', 'linked.db')).catch(err => {
+    if (err?.code !== 'EPERM') throw err;
+  });
 
   // Default discovery must never count Insiders data.
   const unifiedManager = new UsageStatsManager({ geminiDir: root, stateDir: root });
@@ -188,7 +190,7 @@ test('旧共享恢复记录原样保留，不能被正式版自动回滚', async
 });
 
 test('语言服务只匹配正式版并保留 WCV hub 身份，拒绝 Insiders 进程', () => {
-  const target = applicationTarget('stable');
+  const target = applicationTarget('stable', '/Users/demo');
   const version = '2.29.0';
   const command = target.appPath + '/Contents/Resources/bin/language_server --cloud_code_endpoint https://daily-cloudcode-pa.googleapis.com --subclient_type hub --override_ide_version ' + version;
   assert.equal(matchingTargetForLanguageServerCommand(command)?.channel, 'stable');
