@@ -199,7 +199,10 @@ export function commandMatchesTargetLanguageServer(
   candidate: ApplicationTarget,
 ): boolean {
   if (!command) return false;
-  if (command.startsWith(candidate.appPath + '/Contents/Resources/bin/language_server ')) {
+  if (
+    command.startsWith(candidate.appPath + '/Contents/Resources/bin/language_server ') ||
+    (!candidate.appPath.startsWith('/') && command.startsWith('/Applications/Antigravity.app/Contents/Resources/bin/language_server '))
+  ) {
     return true;
   }
   const trimmed = command.trimStart();

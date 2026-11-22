@@ -1,11 +1,19 @@
 import { existsSync } from 'node:fs';
+import { readdir, readFile } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { join } from 'node:path';
 import * as https from 'node:https';
 import * as http from 'node:http';
-import { applicationTarget, matchingTargetForLanguageServerCommand, type ApplicationTarget } from './application-target.js';
+import {
+  applicationTarget,
+  commandMatchesTargetLanguageServer,
+  matchingTargetForLanguageServerCommand,
+  type ApplicationTarget,
+} from './application-target.js';
 import { resolveVerifiedLanguageServerPorts } from './discovery.js';
 import { SqliteReadSnapshot } from './sqlite-read.js';
+import { getPlatform } from './platform/index.js';
 import {
   applyFamilyWindows,
   buildArgonStatus,
@@ -105,12 +113,36 @@ export function parseLoopbackListenPorts(lsofOut: string): number[] {
   return Array.from(new Set(ports));
 }
 
+async function readDaemonCsrfTokenForPid(pid: number): Promise<string | null> {
+  try {
+    const daemonDir = join(getPlatform().getDefaultPaths().defaultGeminiDir, 'antigravity', 'daemon');
+    if (!existsSync(daemonDir)) return null;
+    const files = await readdir(daemonDir).catch(() => [] as string[]);
+    for (const file of files) {
+      if (!file.startsWith('hub_') || !file.endsWith('.json')) continue;
+      try {
+        const raw = await readFile(join(daemonDir, file), 'utf8');
+        const parsed = JSON.parse(raw);
+        if (Number(parsed?.pid) === pid && typeof parsed?.csrfToken === 'string' && parsed.csrfToken.trim()) {
+          return parsed.csrfToken.trim();
+        }
+      } catch {}
+    }
+  } catch {}
+  return null;
+}
+
 async function resolveCandidateCsrfToken(
   candidate: LanguageServerCandidate,
   execFileFn: ExecFileLike
 ): Promise<string | null> {
   const cliToken = extractCsrfTokenFromCommand(candidate.cmd);
   if (cliToken) return cliToken;
+  if (execFileFn === defaultExecFile && getPlatform().id === 'win32') {
+    const envToken = await getPlatform().readProcessEnvVar(candidate.pid, 'ANTIGRAVITY_SERVER_CSRF_TOKEN');
+    if (envToken) return envToken;
+    return await readDaemonCsrfTokenForPid(candidate.pid);
+  }
   try {
     const { stdout: psEnvOut } = await execFileFn(
       '/bin/ps',
@@ -132,6 +164,16 @@ async function resolveCandidatePorts(
     const verifiedPorts = await resolveVerifiedLanguageServerPorts(candidate.pid, candidate.appPath);
     return verifiedPorts ?? [];
   }
+  if (execFileFn === defaultExecFile && getPlatform().id === 'win32') {
+    const listeners = await getPlatform().findTcpListenersByPid(candidate.pid);
+    return Array.from(
+      new Set(
+        listeners
+          .filter(l => l.localAddress === '127.0.0.1' && Number.isInteger(l.localPort) && l.localPort >= 1 && l.localPort <= 65535)
+          .map(l => l.localPort)
+      )
+    );
+  }
   try {
     const { stdout: lsofOut } = await execFileFn(
       '/usr/sbin/lsof',
@@ -148,7 +190,7 @@ export type CloudProviderContext = { origin: string; userAgent: string; appVersi
 const CLOUD_ORIGINS = new Set(['https://cloudcode-pa.googleapis.com', 'https://daily-cloudcode-pa.googleapis.com', 'https://daily-cloudcode-pa.sandbox.googleapis.com']);
 
 export function cloudOriginFromCommand(command: string, target = applicationTarget()): string | null {
-  if (!command.startsWith(target.appPath + '/Contents/Resources/bin/language_server ')) return null;
+  if (!commandMatchesTargetLanguageServer(command, target)) return null;
   const dataDirectory = command.match(/(?:^|\s)--app_data_dir(?:=|\s+)([^\s"]+)/)?.[1];
   if (dataDirectory && dataDirectory !== target.dataDirectoryName) return null;
   const value = command.match(/(?:^|\s)--cloud_code_endpoint(?:=|\s+)([^\s"]+)/)?.[1];
@@ -602,7 +644,13 @@ export async function probeLiveLanguageServerOnce(
 
     const execFileFn = options?.execFileImpl ?? defaultExecFile;
     const useVerifiedBundlePorts = fetchImpl === globalThis.fetch;
-    const { stdout: psOut } = await execFileFn('/bin/ps', ['-ax', '-ww', '-o', 'pid=,args='], { timeout: 3000 });
+    let psOut = '';
+    if (execFileFn === defaultExecFile && getPlatform().id === 'win32') {
+      const procs = await getPlatform().listProcesses('language_server');
+      psOut = procs.map(p => `${p.pid} ${p.commandLine || p.executablePath}`).join('\n');
+    } else {
+      psOut = (await execFileFn('/bin/ps', ['-ax', '-ww', '-o', 'pid=,args='], { timeout: 3000 })).stdout;
+    }
     const candidates = collectLanguageServerCandidates(psOut, target);
 
     for (const candidate of candidates) {

@@ -3,7 +3,7 @@ import { bt } from './i18n.js';
 import { inspectBundle } from './discovery.js';
 import { readFileSync, statSync } from 'node:fs';
 import { lstat, mkdir, readFile, readdir, unlink } from 'node:fs/promises';
-import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { randomUUID, createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -14,10 +14,12 @@ import { validateAccountPolicy } from './account-policy.js';
 import { withProcessLease } from './process-lock.js';
 import { ProtobufReader } from './protobuf.js';
 import { decodeTopicRow } from './account-state.js';
+import { getPlatform } from './platform/index.js';
 import {
   MockKeychainAdapter,
   SystemKeychainAdapter,
   buildGoOauthPayload,
+  decodeKeychainSecretToJson,
   syncAccountToKeychain,
   type KeychainAdapter,
 } from './account-keychain.js';
@@ -268,12 +270,20 @@ export class AccountsManager {
     if(this.inFlightProviderContext)return await this.inFlightProviderContext;
     const task=(async():Promise<CloudProviderContext>=>{
       const candidate = this.target;
-      const text=(await execFileAsync('/bin/ps',['-ax','-ww','-o','args='],{timeout:3000})).stdout;
+      const platform = getPlatform();
+      let lines: string[] = [];
+      if (platform.id === 'win32') {
+        const procs = await platform.listProcesses('language_server');
+        lines = procs.map(p => (p.commandLine || p.executablePath).trim());
+      } else {
+        const text = (await execFileAsync('/bin/ps', ['-ax', '-ww', '-o', 'args='], { timeout: 3000 })).stdout;
+        lines = text.split('\n').map(l => l.trim());
+      }
       let version = '';
       try {
         version = (await inspectBundle(candidate.appPath)).version;
       } catch {}
-      const context = text.split('\n').map(line => cloudProviderContextFromCommand(line.trim(), version, candidate)).find(Boolean);
+      const context = lines.map(line => cloudProviderContextFromCommand(line, version, candidate)).find(Boolean);
       const providerCachePath = join(this.stateDir, 'quota-provider-stable.json');
       if (context) {
         await atomicJson(providerCachePath, context);
@@ -340,7 +350,16 @@ export class AccountsManager {
         try { changes = JSON.parse(await readFile(journal, 'utf8')).changes; }
         catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return; throw error; }
         const accountPaths = (await readdir(this.accountsDir)).filter(name => /^[a-zA-Z0-9_-]+\.json$/.test(name)).map(name => join(this.accountsDir, name));
-        for (const change of changes ?? []) if (typeof change.path === 'string' && change.path.startsWith(this.accountsDir + '/') && /^[a-zA-Z0-9_-]+\.json$/.test(change.path.slice(this.accountsDir.length+1))) accountPaths.push(change.path);
+        const platform = getPlatform();
+        for (const change of changes ?? []) {
+          if (
+            typeof change.path === 'string' &&
+            platform.isStrictSubpath(this.accountsDir, change.path) &&
+            /^[a-zA-Z0-9_-]+\.json$/.test(basename(change.path))
+          ) {
+            accountPaths.push(change.path);
+          }
+        }
         await recoverFileSet(journal, [this.indexPath, this.tombstonesPath, ...accountPaths]);
         this.indexCache = null;
         this.accountCache.clear();
@@ -1204,17 +1223,36 @@ export class AccountsManager {
       throw new Error(bt('accounts.export.err.invalid_path'));
     }
     const uid = process.getuid?.();
+    const platform = getPlatform();
     const parentDir = dirname(resolvedPath);
     const parentInfo = await lstat(parentDir).catch(() => null);
-    if (!parentInfo || !parentInfo.isDirectory() || parentInfo.isSymbolicLink() || (uid !== undefined && parentInfo.uid !== uid)) {
+    let parentOwned = Boolean(parentInfo && parentInfo.isDirectory() && !parentInfo.isSymbolicLink() && (uid === undefined || parentInfo.uid === uid));
+    if (parentOwned) {
+      try {
+        await platform.assertOwnedPath(parentDir, 'dir');
+      } catch {
+        parentOwned = false;
+      }
+    }
+    if (!parentOwned) {
       throw new Error(bt('accounts.export.err.invalid_parent'));
     }
     const existingInfo = await lstat(resolvedPath).catch((err: NodeJS.ErrnoException) => {
       if (err?.code === 'ENOENT') return null;
       throw err;
     });
-    if (existingInfo && (!existingInfo.isFile() || existingInfo.isSymbolicLink() || (uid !== undefined && existingInfo.uid !== uid))) {
-      throw new Error(bt('files.refuse_non_user_file'));
+    if (existingInfo) {
+      let existingOwned = existingInfo.isFile() && !existingInfo.isSymbolicLink() && (uid === undefined || existingInfo.uid === uid);
+      if (existingOwned) {
+        try {
+          await platform.assertOwnedPath(resolvedPath, 'file');
+        } catch {
+          existingOwned = false;
+        }
+      }
+      if (!existingOwned) {
+        throw new Error(bt('files.refuse_non_user_file'));
+      }
     }
 
     await this.init();
@@ -1767,9 +1805,10 @@ export class AccountsManager {
     expectedEmail?: string;
     strictSandboxGuard?: boolean;
   }): Promise<{ token: TokenData | null; email: string | null }> {
-    const defaultStateDir = join(homedir(), 'Library', 'Application Support', 'GravityBox');
+    const platformPaths = getPlatform().getDefaultPaths();
+    const defaultStateDir = platformPaths.stateDir;
     const isDefaultStateDir = this.stateDir === defaultStateDir;
-    const defaultProfileDir = join(homedir(), 'Library', 'Application Support', this.target.name);
+    const defaultProfileDir = platformPaths.defaultAntigravityProfile;
     const hasCustomTargetProfile = resolve(this.target.profile) !== resolve(defaultProfileDir);
     if (
       options?.strictSandboxGuard
@@ -1784,7 +1823,7 @@ export class AccountsManager {
     }
 
     const homeDir = options?.homeDir ?? homedir();
-    const appSupportDir = options?.appSupportDir ?? join(homedir(), 'Library', 'Application Support');
+    const appSupportDir = options?.appSupportDir ?? platformPaths.appSupportDir;
     const isSandboxHome = homeDir !== homedir();
     const allowHostSessionFiles = options?.homeDir !== undefined || isDefaultStateDir;
     const allowHostKeychain = Boolean(options?.keychain) || (!isSandboxHome && isDefaultStateDir);
@@ -1824,8 +1863,8 @@ export class AccountsManager {
       const keychain = options?.keychain ?? new SystemKeychainAdapter();
       try {
         const pass = await keychain.readPassword('gemini', 'antigravity');
-        if (pass && pass.startsWith('go-keyring-base64:')) {
-          const raw = Buffer.from(pass.slice('go-keyring-base64:'.length), 'base64').toString('utf8');
+        const raw = decodeKeychainSecretToJson(pass);
+        if (raw) {
           const parsed = JSON.parse(raw);
           if (parsed?.token?.refresh_token) {
             const extracted = AccountsManager.buildExtractedOAuthToken(parsed.token, parsed.id_token_email || null);
@@ -2527,7 +2566,7 @@ export class AccountsManager {
       const ls = await this.probeLiveLanguageServer().catch(() => null);
       if (ls?.email) return ls.email;
     }
-    const isDefaultStateDir = this.stateDir === join(homedir(), 'Library', 'Application Support', 'GravityBox');
+    const isDefaultStateDir = this.stateDir === getPlatform().getDefaultPaths().stateDir;
     if (!isDefaultStateDir) return null;
     const now = Date.now();
     if (this.desktopEmailCache && now < this.desktopEmailCache.expiresAt) {
@@ -2571,8 +2610,8 @@ export class AccountsManager {
     if (!detected) {
       try {
         const pass = await new SystemKeychainAdapter().readPassword('gemini', 'antigravity');
-        if (pass && pass.startsWith('go-keyring-base64:')) {
-          const raw = Buffer.from(pass.slice('go-keyring-base64:'.length), 'base64').toString('utf8');
+        const raw = decodeKeychainSecretToJson(pass);
+        if (raw) {
           const parsed = JSON.parse(raw);
           const email = parsed?.token?.email || parsed?.id_token_email;
           if (typeof email === 'string' && /^[^\s@]+@[^\s@]+$/.test(email)) detected = email;

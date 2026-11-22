@@ -1,10 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { execFile } from 'node:child_process';
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
+import { DatabaseSync } from 'node:sqlite';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { promisify } from 'node:util';
 import {
   AccountsManager,
   MockKeychainAdapter,
@@ -16,8 +15,6 @@ import {
 import { replaceTopicRow } from '../dist/account-state.js';
 import { bt, getActiveLocale, setActiveLocale } from '../dist/i18n.js';
 import { ProtobufWriter as Writer } from '../dist/protobuf.js';
-
-const execFileAsync = promisify(execFile);
 
 function buildKeychainSecret(tokenObj, idTokenEmail) {
   const payload = JSON.stringify({
@@ -72,7 +69,12 @@ async function createStateVscdb(vscdbPath, {
     'CREATE TABLE ItemTable(key TEXT PRIMARY KEY, value TEXT);',
     ...rows.map(([k, v]) => `INSERT INTO ItemTable(key, value) VALUES('${k.replaceAll("'", "''")}', '${v.replaceAll("'", "''")}');`),
   ].join('\n');
-  await execFileAsync('/usr/bin/sqlite3', [vscdbPath, sql]);
+  const db = new DatabaseSync(vscdbPath);
+  try {
+    db.exec(sql);
+  } finally {
+    db.close();
+  }
 }
 
 function makeLiveStatus(email, pct = 82) {

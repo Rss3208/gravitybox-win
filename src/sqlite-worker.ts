@@ -664,7 +664,8 @@ let sessionError: string | undefined;
 let sessionDataVersion = 0;
 
 function openSession(path: string) {
-  try { database?.exec('ROLLBACK;'); database?.close(); } catch {}
+  try { database?.exec('ROLLBACK;'); } catch {}
+  try { database?.close(); } catch {}
   database = undefined;
   sessionError = undefined;
   try {
@@ -677,7 +678,8 @@ function openSession(path: string) {
 }
 
 function closeSession() {
-  try { database?.exec('ROLLBACK;'); database?.close(); } catch {}
+  try { database?.exec('ROLLBACK;'); } catch {}
+  try { database?.close(); } catch {}
   database = undefined;
   sessionError = undefined;
 }

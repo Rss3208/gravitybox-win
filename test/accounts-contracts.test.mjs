@@ -87,13 +87,22 @@ test('D02: 账号删除受阻保留原文件与恢复日志，权限恢复后完
   try {
     const mgr = new AccountsManager(dir);
     const acc = await mgr.upsertAccount({ email: 'keep@example.test', refreshToken: 'tok-keep' });
-    await chmod(accountsDir, 0o500); // 目录不可写 → unlink 失败
+    const accFilePath = join(accountsDir, `${acc.id}.json`);
+    if (process.platform === 'win32') {
+      await chmod(accFilePath, 0o400);
+    } else {
+      await chmod(accountsDir, 0o500); // 目录不可写 → unlink 失败
+    }
     await assert.rejects(mgr.deleteAccount(acc.id), /账号移除尚未完成|无法删除账号文件/);
     const before = JSON.parse(await readFile(join(dir,'accounts.json'),'utf8'));
     assert.ok(before.accounts.some(item=>item.id===acc.id));
     assert.ok(await accountFile(dir,acc.id));
     assert.ok(JSON.parse(await readFile(join(dir,'account-delete-commit.json'),'utf8')).changes.length===3);
-    await chmod(accountsDir,0o700);
+    if (process.platform === 'win32') {
+      await chmod(accFilePath, 0o600);
+    } else {
+      await chmod(accountsDir,0o700);
+    }
     const index=await mgr.loadIndex();
     assert.ok(!index.accounts.some(item=>item.id===acc.id),'恢复后索引与已提交删除一致');
     assert.equal(await mgr.getAccount(acc.id),null);
@@ -952,7 +961,13 @@ test('v1.1.3 Issue #20: JSON 批量导入、嵌套 token 解析、过期时间�
 
   // 3. 构造符号链接（必须被安全护栏跳过）
   const symlinkPath = join(srcDir, 'symlink-account.json');
-  await fs.promises.symlink(externalCollisionFile, symlinkPath);
+  await fs.promises.symlink(externalCollisionFile, symlinkPath).catch(async err => {
+    if (err?.code === 'EPERM') {
+      await fs.promises.symlink(batchFolder, symlinkPath, 'junction');
+    } else {
+      throw err;
+    }
+  });
 
   const importRes = await mgr.importAccountsFromJson([externalCollisionFile, batchFolder, symlinkPath]);
   assert.equal(importRes.imported, 2, '应成功导入 2 个新账号');

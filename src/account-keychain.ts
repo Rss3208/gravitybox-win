@@ -1,6 +1,7 @@
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import { bt } from './i18n.js';
+import { getPlatform } from './platform/index.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -10,8 +11,32 @@ export interface KeychainAdapter {
   deletePassword(service: string, account: string): Promise<void>;
 }
 
+/**
+ * 解析 Keychain / Windows Credential Manager 返回的密码字符串为原始 JSON 文本。
+ * 兼容 `go-keyring-base64:<b64>` 与 Windows 原生 UTF-8 JSON（CHK-04）。
+ */
+export function decodeKeychainSecretToJson(secret: string | null | undefined): string | null {
+  if (!secret || typeof secret !== 'string') return null;
+  if (secret.startsWith('go-keyring-base64:')) {
+    try {
+      return Buffer.from(secret.slice('go-keyring-base64:'.length), 'base64').toString('utf8');
+    } catch {
+      return null;
+    }
+  }
+  const trimmed = secret.trim();
+  if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+    return trimmed;
+  }
+  return null;
+}
+
 export class SystemKeychainAdapter implements KeychainAdapter {
   async readPassword(service: string, account: string): Promise<string | null> {
+    const platform = getPlatform();
+    if (platform.id === 'win32') {
+      return platform.createKeychainAdapter().readPassword(service, account);
+    }
     try {
       const { stdout } = await execFileAsync('/usr/bin/security', [
         'find-generic-password',
@@ -29,6 +54,10 @@ export class SystemKeychainAdapter implements KeychainAdapter {
   }
 
   async writePassword(service: string, account: string, password: string): Promise<void> {
+    const platform = getPlatform();
+    if (platform.id === 'win32') {
+      return platform.createKeychainAdapter().writePassword(service, account, password);
+    }
     return new Promise((resolve, reject) => {
       const q = (val: string) => `"${String(val).replace(/[\\"\r\n]/g, m => (m === '\r' || m === '\n' ? '' : `\\${m}`))}"`;
       // 通过 security -i 批处理从 stdin 传入完整命令与密码，既不在 argv 暴露凭据，也不触发 /dev/tty getpass() 阻塞
@@ -61,6 +90,10 @@ export class SystemKeychainAdapter implements KeychainAdapter {
   }
 
   async deletePassword(service: string, account: string): Promise<void> {
+    const platform = getPlatform();
+    if (platform.id === 'win32') {
+      return platform.createKeychainAdapter().deletePassword(service, account);
+    }
     try {
       await execFileAsync('/usr/bin/security', ['delete-generic-password', '-s', service, '-a', account], { timeout: 5000 });
     } catch (error) { if ((error as { code?: number }).code !== 44) throw new Error(bt('keychain.err.delete')); }
@@ -98,7 +131,7 @@ export interface KeychainSyncAccount {
 }
 
 /**
- * 构造官方 Go 端 (macOS Keychain & agy CLI) 通用 oauth2.Token JSON 载荷
+ * 构造官方 Go 端 (macOS Keychain / Windows Credential Manager & agy CLI) 通用 oauth2.Token JSON 载荷
  */
 export function buildGoOauthPayload(acc: KeychainSyncAccount): string {
   // 官方 Go 端按 oauth2.Token 解析：缺少 `expiry` 会被视为永不过期，从而永不刷新（约 1 小时后 401 并跳登录页）。
@@ -126,7 +159,7 @@ export function buildGoOauthPayload(acc: KeychainSyncAccount): string {
 }
 
 /**
- * 将指定账号写入系统 Keychain (gemini/antigravity) 免密持久化
+ * 将指定账号写入系统凭据存储 (gemini/antigravity) 免密持久化
  */
 export async function syncAccountToKeychain(
   acc: KeychainSyncAccount,
