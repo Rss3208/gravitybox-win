@@ -1,5 +1,133 @@
+using System;
+using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows;
+using GravityBox.App.Core;
+using GravityBox.App.Services;
+using GravityBox.App.ViewModels;
+using GravityBox.App.Views;
+
 namespace GravityBox.App;
 
 public partial class App : System.Windows.Application
 {
+    private Mutex? _singleInstanceMutex;
+    private ThemeService? _themeService;
+    private BackendBridge? _bridge;
+    private LifecycleSyncService? _lifecycle;
+    private TrayIconService? _trayIcon;
+    private TrayFlyoutWindow? _flyoutWindow;
+    private MainWindow? _mainWindow;
+    private MainShellViewModel? _shellVm;
+
+    protected override async void OnStartup(StartupEventArgs e)
+    {
+        base.OnStartup(e);
+
+        _singleInstanceMutex = new Mutex(initiallyOwned: true, @"Local\GravityBox-SingleInstance", out bool createdNew);
+        if (!createdNew)
+        {
+            Shutdown(0);
+            return;
+        }
+
+        bool minimized = e.Args.Any(a => string.Equals(a, "--minimized", StringComparison.OrdinalIgnoreCase));
+        string baseDir = AppContext.BaseDirectory;
+        string stateDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "GravityBox");
+        string logDir = Path.Combine(stateDir, "logs");
+        string i18nDir = Path.Combine(baseDir, "assets", "i18n");
+        string iconPath = Path.Combine(baseDir, "assets", "AppIcon.ico");
+
+        var config = new ConfigurationStore(stateDir);
+        var l10n = new L10nService(i18nDir);
+        l10n.SetLanguage(config.Value.AppLanguage);
+
+        _themeService = new ThemeService();
+        _themeService.ApplyToApplication(this);
+
+        _bridge = new BackendBridge(baseDir, stateDir, logDir)
+        {
+            PreferredLocale = config.Value.AppLanguage,
+        };
+        _lifecycle = new LifecycleSyncService();
+        _lifecycle.AutoExitRequested += () => Dispatcher.Invoke(() => _ = ShutdownAppAsync());
+
+        var flyoutVm = new TrayFlyoutViewModel(_bridge, config, l10n);
+        _shellVm = new MainShellViewModel(_bridge, config, l10n, _lifecycle);
+        _shellVm.ExitApplicationRequested += () => _ = ShutdownAppAsync();
+
+        _mainWindow = new MainWindow(_shellVm, _themeService);
+        _flyoutWindow = new TrayFlyoutWindow(flyoutVm);
+
+        flyoutVm.OpenMainWindowRequested += ShowMainWindow;
+        flyoutVm.OpenAntigravityRequested += () => _ = _shellVm.OpenAntigravityAsync();
+        flyoutVm.SafeRelaunchRequested += () => _ = _shellVm.OpenAntigravityAsync();
+
+        _trayIcon = new TrayIconService(l10n, iconPath);
+        _trayIcon.LeftClickRequested += () => _flyoutWindow.ShowNearCursor();
+        _trayIcon.OpenMainWindowRequested += ShowMainWindow;
+        _trayIcon.OpenAntigravityRequested += () => _ = _shellVm.OpenAntigravityAsync();
+        _trayIcon.LanguageChangeRequested += lang =>
+        {
+            config.Update(c => c.AppLanguage = lang);
+            l10n.SetLanguage(lang);
+            _ = _bridge.SendAsync("language_set", new System.Text.Json.Nodes.JsonObject { ["language"] = lang });
+        };
+        _trayIcon.ExitRequested += () => _ = ShutdownAppAsync();
+
+        try
+        {
+            await _bridge.LaunchAsync();
+        }
+        catch
+        {
+            // Surface via status polling banner
+        }
+
+        _shellVm.StartPolling();
+
+        if (!minimized)
+        {
+            ShowMainWindow();
+        }
+    }
+
+    private void ShowMainWindow()
+    {
+        if (_mainWindow == null) return;
+        if (!_mainWindow.IsVisible)
+        {
+            _mainWindow.Show();
+        }
+        if (_mainWindow.WindowState == WindowState.Minimized)
+        {
+            _mainWindow.WindowState = WindowState.Normal;
+        }
+        _mainWindow.Activate();
+    }
+
+    private async Task ShutdownAppAsync()
+    {
+        if (_mainWindow != null)
+        {
+            _mainWindow.AllowExplicitClose = true;
+            _mainWindow.Close();
+        }
+        _flyoutWindow?.Close();
+        _trayIcon?.Dispose();
+        _shellVm?.Dispose();
+        _lifecycle?.Dispose();
+        _themeService?.Dispose();
+        if (_bridge != null)
+        {
+            await _bridge.DisposeAsync();
+        }
+        _singleInstanceMutex?.ReleaseMutex();
+        _singleInstanceMutex?.Dispose();
+        Shutdown(0);
+    }
 }
