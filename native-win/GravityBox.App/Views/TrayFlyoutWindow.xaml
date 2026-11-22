@@ -1,0 +1,158 @@
+<Window x:Class="GravityBox.App.Views.TrayFlyoutWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:GravityBox.App.Controls"
+        Width="424"
+        SizeToContent="Height"
+        MaxHeight="600"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        Topmost="True"
+        ResizeMode="NoResize">
+    <Border Background="{DynamicResource BackgroundBrush}"
+            BorderBrush="{DynamicResource BorderBrush}"
+            BorderThickness="1"
+            CornerRadius="12"
+            Padding="14">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- Top Header & Segmented Tabs -->
+            <Grid Grid.Row="0" Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0"
+                           Text="GravityBox"
+                           FontFamily="{DynamicResource AppFontFamily}"
+                           FontSize="14"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
+                           VerticalAlignment="Center" />
+
+                <Border Grid.Column="1"
+                        Background="{DynamicResource SubCardBrush}"
+                        CornerRadius="9"
+                        Padding="3"
+                        Margin="12,0"
+                        HorizontalAlignment="Center">
+                    <StackPanel Orientation="Horizontal">
+                        <RadioButton Content="用量"
+                                     Style="{StaticResource SegmentedTabRadioStyle}"
+                                     IsChecked="{Binding SelectedTab, Converter={x:Null}, Mode=OneWay}"
+                                     Command="{Binding SelectTabCommand}"
+                                     CommandParameter="0" />
+                        <RadioButton Content="配额"
+                                     Style="{StaticResource SegmentedTabRadioStyle}"
+                                     Command="{Binding SelectTabCommand}"
+                                     CommandParameter="1" />
+                        <RadioButton Content="账号"
+                                     Style="{StaticResource SegmentedTabRadioStyle}"
+                                     Command="{Binding SelectTabCommand}"
+                                     CommandParameter="2" />
+                    </StackPanel>
+                </Border>
+
+                <Button Grid.Column="2"
+                        Content="↻"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Padding="8,4"
+                        Command="{Binding RefreshCommand}" />
+            </Grid>
+
+            <!-- Debug port missing banner -->
+            <Border Grid.Row="1"
+                    Background="{DynamicResource WarningSoftBrush}"
+                    CornerRadius="10"
+                    Padding="10,8"
+                    Margin="0,0,0,10"
+                    Visibility="{Binding DebugPortMissing, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0"
+                               Text="Antigravity 未开启调试端口"
+                               Foreground="{DynamicResource WarningTextBrush}"
+                               FontSize="12"
+                               VerticalAlignment="Center" />
+                    <Button Grid.Column="1"
+                            Content="安全重启以连接"
+                            Style="{StaticResource PrimaryButtonStyle}"
+                            Padding="10,4"
+                            Command="{Binding SafeRelaunchCommand}" />
+                </Grid>
+            </Border>
+
+            <!-- Content Body -->
+            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" MaxHeight="380">
+                <StackPanel>
+                    <!-- Summary Card -->
+                    <Border Style="{StaticResource CardContainerStyle}" Margin="0,0,0,8">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="今日 Token" Style="{StaticResource SecondaryLabelStyle}" />
+                                <TextBlock Text="{Binding TodayTokensText}" Style="{StaticResource TabularTextStyle}" FontSize="16" FontWeight="SemiBold" Margin="0,2,0,0" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="请求数" Style="{StaticResource SecondaryLabelStyle}" />
+                                <TextBlock Text="{Binding TodayRequestsText}" Style="{StaticResource TabularTextStyle}" FontSize="16" FontWeight="SemiBold" Margin="0,2,0,0" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="等效费用" Style="{StaticResource SecondaryLabelStyle}" />
+                                <TextBlock Text="{Binding TodayCostText}" Style="{StaticResource TabularTextStyle}" FontSize="16" FontWeight="SemiBold" Margin="0,2,0,0" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Quota List -->
+                    <Border Style="{StaticResource CardContainerStyle}" Margin="0,0,0,8">
+                        <ItemsControl ItemsSource="{Binding QuotaRows}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <controls:QuotaMeterRow Title="{Binding Title}"
+                                                            Percentage="{Binding Percentage}"
+                                                            RemainingText="{Binding RemainingText}"
+                                                            ResetText="{Binding ResetText}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- Bottom Actions -->
+            <Grid Grid.Row="3" Margin="0,10,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="8" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Button Grid.Column="0"
+                        Content="打开 Antigravity"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Command="{Binding OpenAntigravityCommand}" />
+                <Button Grid.Column="2"
+                        Content="打开主界面"
+                        Style="{StaticResource PrimaryButtonStyle}"
+                        Command="{Binding OpenMainWindowCommand}" />
+            </Grid>
+        </Grid>
+    </Border>
+</Window>
