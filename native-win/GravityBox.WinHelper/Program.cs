@@ -32,6 +32,11 @@ public static class Program
             return 0;
         }
 
+        if (args.Contains("--restore-shortcuts", StringComparer.OrdinalIgnoreCase))
+        {
+            return RestoreBackedUpShortcutsFromCli();
+        }
+
         string? line;
         while ((line = Console.ReadLine()) != null)
         {
@@ -45,6 +50,42 @@ public static class Program
             Console.Out.Flush();
         }
 
+        return 0;
+    }
+
+    private static int RestoreBackedUpShortcutsFromCli()
+    {
+        try
+        {
+            string stateDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "GravityBox");
+            string backupFile = Path.Combine(stateDir, "shortcut-backups.json");
+            if (!File.Exists(backupFile))
+            {
+                return 0;
+            }
+
+            using var doc = JsonDocument.Parse(File.ReadAllText(backupFile, Encoding.UTF8));
+            if (doc.RootElement.TryGetProperty("entries", out var entries) && entries.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var entry in entries.EnumerateArray())
+                {
+                    string? lnkPath = entry.TryGetProperty("path", out var p) ? p.GetString() : null;
+                    string origArgs = entry.TryGetProperty("originalArguments", out var oa) ? (oa.GetString() ?? string.Empty) : string.Empty;
+                    if (!string.IsNullOrWhiteSpace(lnkPath) && File.Exists(lnkPath))
+                    {
+                        try { ShortcutManager.SetShortcutArguments(lnkPath, origArgs); } catch { }
+                    }
+                }
+            }
+
+            File.WriteAllText(backupFile, "{\"schema\":1,\"updatedAt\":\"" + DateTime.UtcNow.ToString("O") + "\",\"entries\":[]}\n", Encoding.UTF8);
+        }
+        catch
+        {
+            // Best effort during uninstall
+        }
         return 0;
     }
 
