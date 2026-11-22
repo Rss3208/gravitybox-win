@@ -3,12 +3,27 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, readdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
+import { DatabaseSync } from 'node:sqlite';
 import { AccountSwitchService, DatabaseTransaction } from '../dist/account-switch.js';
 import { AccountsManager, MockKeychainAdapter } from '../dist/accounts.js';
 
-const run = promisify(execFile);
+function execSql(dbPath, sql) {
+  const db = new DatabaseSync(dbPath);
+  try {
+    db.exec(sql);
+  } finally {
+    db.close();
+  }
+}
+
+function querySql(dbPath, sql) {
+  const db = new DatabaseSync(dbPath, { readOnly: true });
+  try {
+    return db.prepare(sql).all();
+  } finally {
+    db.close();
+  }
+}
 
 function makeAccount(id, email, opts = {}) {
   return {
@@ -30,7 +45,7 @@ async function setupSandbox() {
   await mkdir(join(profile, 'User', 'globalStorage'), { recursive: true });
 
   const db = join(profile, 'User', 'globalStorage', 'state.vscdb');
-  await run('/usr/bin/sqlite3', [db, 'CREATE TABLE ItemTable (key TEXT PRIMARY KEY, value TEXT);']);
+  execSql(db, 'CREATE TABLE ItemTable (key TEXT PRIMARY KEY, value TEXT);');
 
   const manager = new AccountsManager(stateDir);
   await manager.init();
@@ -141,7 +156,7 @@ test('S3 切号事务: 从带有企业项目偏好的账号切换至个人账号
   const env = await setupSandbox();
   try {
     // 预先在数据库中插入包含企业项目行的 ItemTable 数据
-    await run('/usr/bin/sqlite3', [env.db, `INSERT INTO ItemTable VALUES('antigravityUnifiedStateSync.enterprisePreferences','old-enterprise-proj');`]);
+    execSql(env.db, `INSERT INTO ItemTable VALUES('antigravityUnifiedStateSync.enterprisePreferences','old-enterprise-proj');`);
 
     const personalAcc = await env.manager.upsertAccount(makeAccount('pers-1', 'myuser@example.test', { projectId: null }));
 
@@ -156,8 +171,7 @@ test('S3 切号事务: 从带有企业项目偏好的账号切换至个人账号
     const switchRes = await service.switchAccount(personalAcc.id);
     assert.equal(switchRes.switchedTo, 'myuser@example.test');
 
-    const raw = (await run('/usr/bin/sqlite3', ['-json', env.db, "SELECT key,value FROM ItemTable WHERE key='antigravityUnifiedStateSync.enterprisePreferences';"])).stdout.trim();
-    const dbRows = raw ? JSON.parse(raw) : [];
+    const dbRows = querySql(env.db, "SELECT key,value FROM ItemTable WHERE key='antigravityUnifiedStateSync.enterprisePreferences';");
     assert.equal(dbRows.length, 0, '切换至个人账号后，企业项目行必须被清理删除');
   } finally {
     await rm(env.root, { recursive: true, force: true });

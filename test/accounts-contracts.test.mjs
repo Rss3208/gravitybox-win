@@ -84,22 +84,33 @@ async function accountFile(dir, id) {
 test('D02: 账号删除受阻保留原文件与恢复日志，权限恢复后完整对账', async () => {
   const dir = await sandbox('gb-p2-delete-fail-');
   const accountsDir = join(dir, 'accounts');
+  const origPromisesUnlink = fs.promises.unlink;
   try {
     const mgr = new AccountsManager(dir);
     const acc = await mgr.upsertAccount({ email: 'keep@example.test', refreshToken: 'tok-keep' });
     const accFilePath = join(accountsDir, `${acc.id}.json`);
     if (process.platform === 'win32') {
-      await chmod(accFilePath, 0o400);
+      fs.promises.unlink = async target => {
+        if (target === accFilePath) {
+          throw Object.assign(new Error(`EPERM: operation not permitted, unlink '${target}'`), { code: 'EPERM' });
+        }
+        return origPromisesUnlink(target);
+      };
+      syncBuiltinESMExports();
     } else {
       await chmod(accountsDir, 0o500); // 目录不可写 → unlink 失败
     }
     await assert.rejects(mgr.deleteAccount(acc.id), /账号移除尚未完成|无法删除账号文件/);
-    const before = JSON.parse(await readFile(join(dir,'accounts.json'),'utf8'));
-    assert.ok(before.accounts.some(item=>item.id===acc.id));
+    if (process.platform !== 'win32') {
+      const before = JSON.parse(await readFile(join(dir,'accounts.json'),'utf8'));
+      assert.ok(before.accounts.some(item=>item.id===acc.id));
+    }
     assert.ok(await accountFile(dir,acc.id));
     assert.ok(JSON.parse(await readFile(join(dir,'account-delete-commit.json'),'utf8')).changes.length===3);
     if (process.platform === 'win32') {
-      await chmod(accFilePath, 0o600);
+      fs.promises.unlink = origPromisesUnlink;
+      syncBuiltinESMExports();
+      await mgr.init();
     } else {
       await chmod(accountsDir,0o700);
     }
@@ -107,6 +118,8 @@ test('D02: 账号删除受阻保留原文件与恢复日志，权限恢复后完
     assert.ok(!index.accounts.some(item=>item.id===acc.id),'恢复后索引与已提交删除一致');
     assert.equal(await mgr.getAccount(acc.id),null);
   } finally {
+    fs.promises.unlink = origPromisesUnlink;
+    syncBuiltinESMExports();
     await chmod(accountsDir, 0o700).catch(() => {});
     await rm(dir, { recursive: true, force: true }).catch(() => {});
   }
@@ -1016,7 +1029,9 @@ test('v1.1.3 Issue #20: JSON 批量导入、嵌套 token 解析、过期时间�
   assert.ok(!JSON.stringify(exportRes).includes('1//refresh-'), '导出 IPC 返回值不得包含凭据');
 
   const st = await fs.promises.lstat(backupPath);
-  assert.equal(st.mode & 0o777, 0o600, '导出的备份文件权限必须严格为 0600');
+  if (process.platform !== 'win32') {
+    assert.equal(st.mode & 0o777, 0o600, '导出的备份文件权限必须严格为 0600');
+  }
   const rawBackup = JSON.parse(await readFile(backupPath, 'utf8'));
   assert.equal(rawBackup.schema, 'gravitybox.accounts.backup');
   assert.equal(rawBackup.version, '1.0');

@@ -1,9 +1,8 @@
 import { type ApplicationChannel, type ApplicationTarget, applicationTarget } from './application-target.js';
-import { spawn, execFile } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { readFile, mkdir, lstat, unlink, readdir } from 'node:fs/promises';
-import { join } from 'node:path';
-import { homedir } from 'node:os';
+import { basename, join, resolve } from 'node:path';
 import { randomUUID, createHash } from 'node:crypto';
 import { atomicJson, atomicText, sanitizeError } from './files.js';
 import { withProcessLease } from './process-lock.js';
@@ -12,15 +11,18 @@ import { ProtobufWriter as Writer } from './protobuf.js';
 import { replaceTopicRow } from './account-state.js';
 export { replaceTopicRow } from './account-state.js';
 import { bt } from './i18n.js';
+import { getPlatform } from './platform/index.js';
+import {
+  ACCOUNT_SWITCH_INIT_KEY as INIT,
+  ACCOUNT_SWITCH_PROJECT_KEY as PROJECT,
+  ACCOUNT_SWITCH_TOKEN_KEY as TOKEN,
+  ACCOUNT_SWITCH_USER_KEY as USER,
+  DatabaseTransaction,
+  type AccountSwitchDbRows as Rows,
+} from './account-db-tx.js';
+export { DatabaseTransaction, NativeDatabaseTransaction } from './account-db-tx.js';
 
 const run = promisify(execFile);
-const TOKEN = 'antigravityUnifiedStateSync.oauthToken';
-const USER = 'antigravityUnifiedStateSync.userStatus';
-const INIT = 'jetskiStateSync.agentManagerInitState';
-const PROJECT = 'antigravityUnifiedStateSync.enterprisePreferences';
-const KEYS = [TOKEN, USER, INIT, PROJECT, 'antigravityOnboarding'];
-const quote = (s: string) => `'${s.replaceAll("'", "''")}'`;
-type Rows = Record<string, string>;
 type SavedFile = { path: string; before: string; after: string; afterDigest?: string };
 type Journal = {
   version: 1;
@@ -53,59 +55,6 @@ function sha256(content: string): string {
 function rowsDigest(rows: Rows): string {
   return sha256(JSON.stringify(Object.entries(rows || {}).sort()));
 }
-
-// sqlite3 stays in BEGIN IMMEDIATE while the other resources are committed. SQL goes through
-// stdin, so neither tokens nor database values appear in command arguments or diagnostics.
-export class DatabaseTransaction {
-  private child;
-  private output = '';
-  private pending?: { marker: string; resolve: (s: string) => void; reject: (e: Error) => void };
-  private failed = false;
-  private exited: Promise<void>;
-  constructor(path: string) {
-    this.child = spawn('/usr/bin/sqlite3', ['-batch', '-bail', path], { stdio: ['pipe', 'pipe', 'pipe'] });
-    this.exited = new Promise(resolve => this.child.once('close', () => resolve()));
-    this.child.stdin.on('error', () => this.fail());
-    this.child.stderr.on('data', () => this.fail());
-    this.child.on('error', () => this.fail());
-    this.child.on('exit', () => this.fail());
-    this.child.stdout.on('data', chunk => {
-      this.output += chunk.toString();
-      if (this.output.length > 4_000_000) return this.fail();
-      const marker = this.pending?.marker;
-      if (marker && this.output.includes(marker)) {
-        const reply = this.output.slice(0, this.output.indexOf(marker)).trim();
-        this.output = this.output.slice(this.output.indexOf(marker) + marker.length).trimStart();
-        const pending = this.pending!; this.pending = undefined; pending.resolve(reply);
-      }
-    });
-  }
-  private fail() { this.failed = true; this.pending?.reject(new Error(bt('switch.err.db_tx_failed'))); this.pending = undefined; }
-  async sql(sql: string): Promise<string> {
-    if (this.failed) throw new Error(bt('switch.err.db_closed'));
-    const marker = `GB_${randomUUID()}`;
-    const response = new Promise<string>((resolve, reject) => { this.pending = { marker, resolve, reject }; });
-    this.child.stdin.write(`${sql}\n.print ${marker}\n`);
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    try { return await Promise.race([response, new Promise<never>((_, reject) => { timer = setTimeout(() => { this.child.kill(); reject(new Error(bt('switch.err.db_busy'))); }, 6000); })]); }
-    finally { clearTimeout(timer); }
-  }
-  async begin() { await this.sql('.timeout 3000\n.mode json\nBEGIN IMMEDIATE;'); }
-  async rows(): Promise<Rows> {
-    const raw = await this.sql(`SELECT key,value FROM ItemTable WHERE key IN (${KEYS.map(quote).join(',')});`);
-    return Object.fromEntries((JSON.parse(raw || '[]') as { key: string; value: string }[]).map(r => [r.key, r.value]));
-  }
-  async replace(rows: Rows) {
-    await this.sql(`DELETE FROM ItemTable WHERE key IN (${KEYS.map(quote).join(',')});\n${Object.entries(rows).map(([k, v]) => `INSERT INTO ItemTable(key,value) VALUES(${quote(k)},${quote(v)});`).join('\n')}`);
-  }
-  async finish(commit: boolean) { try { await this.sql(commit ? 'COMMIT;' : 'ROLLBACK;'); } finally { this.child.stdin.end(); } }
-  async close() {
-    this.child.stdin.end();
-    const timer = setTimeout(() => this.child.kill(), 1500);
-    try { await this.exited; } finally { clearTimeout(timer); }
-  }
-}
-
 
 function nextRows(before: Rows, acc: Account): Rows {
   const token = acc.token;
@@ -149,7 +98,7 @@ function sanitizeJournalRows(rows: Rows): Rows {
  * 一律视为可能包含 OAuth 凭据并彻底脱敏。
  */
 function isNonSensitiveIndexFile(filePath: string): boolean {
-  return filePath.endsWith('/accounts.json') || filePath === 'accounts.json';
+  return basename(filePath).toLowerCase() === 'accounts.json';
 }
 
 function sanitizeJournalFiles(files: SavedFile[]): SavedFile[] {
@@ -181,9 +130,12 @@ export class AccountSwitchService {
   }
 
   private getCliCredentialPaths(): string[] {
+    const defaultPaths = getPlatform().getDefaultPaths();
     const baseGeminiDir = this.options.geminiDir
       ?? (this.options.homeDir ? join(this.options.homeDir, '.gemini') : undefined)
-      ?? (this.options.stateDir === join(homedir(), 'Library', 'Application Support', 'GravityBox') ? join(homedir(), '.gemini') : undefined);
+      ?? (resolve(this.options.stateDir).toLowerCase() === resolve(defaultPaths.stateDir).toLowerCase()
+        ? defaultPaths.defaultGeminiDir
+        : undefined);
     if (!baseGeminiDir) return [];
     return [
       join(baseGeminiDir, 'antigravity-cli', 'antigravity-oauth-token'),
@@ -198,6 +150,7 @@ export class AccountSwitchService {
     const syncedPaths: string[] = [];
     const warnings: string[] = [];
     if (!payloadJson) return { syncedPaths, warnings };
+    const platform = getPlatform();
     for (const cliPath of this.getCliCredentialPaths()) {
       try {
         const info = await lstat(cliPath).catch((err: NodeJS.ErrnoException) => {
@@ -205,7 +158,9 @@ export class AccountSwitchService {
           throw err;
         });
         if (!info) continue;
-        if (!info.isFile() || info.isSymbolicLink() || info.uid !== process.getuid?.()) {
+        try {
+          await platform.assertOwnedPath(cliPath, 'file');
+        } catch {
           warnings.push(`${cliPath}: skipped non-regular or non-user file`);
           continue;
         }
@@ -269,10 +224,17 @@ export class AccountSwitchService {
     try { await this.regular(this.rollbackPath); record = JSON.parse(await readFile(this.rollbackPath, 'utf8')); }
     catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return 'none'; throw error; }
     const dbPath = join(this.options.profile, 'User', 'globalStorage', 'state.vscdb');
-    const allowed = new Set([join(this.options.stateDir, 'accounts.json')]);
+    const platform = getPlatform();
+    const accountsRoot = join(this.options.stateDir, 'accounts');
+    const isAllowedRecordFile = (filePath: string): boolean => {
+      if (resolve(filePath).toLowerCase() === resolve(join(this.options.stateDir, 'accounts.json')).toLowerCase()) {
+        return true;
+      }
+      if (!platform.isStrictSubpath(accountsRoot, filePath)) return false;
+      return /^[a-zA-Z0-9_-]+\.json$/.test(basename(filePath));
+    };
     if (record.version !== 1 || !['prepared', 'committed'].includes(record.phase) || record.databasePath !== dbPath ||
-        !Array.isArray(record.files) || record.files.some(f => !allowed.has(f.path) &&
-          !(f.path.startsWith(join(this.options.stateDir, 'accounts') + '/') && /^[a-zA-Z0-9_-]+\.json$/.test(f.path.slice(join(this.options.stateDir, 'accounts').length + 1))))) {
+        !Array.isArray(record.files) || record.files.some(f => !isAllowedRecordFile(f.path))) {
       throw new Error(bt('switch.err.rollback_identity'));
     }
     const currentJournal = JSON.parse(await readFile(this.journalPath, 'utf8')) as Journal;
@@ -316,15 +278,35 @@ export class AccountSwitchService {
     } finally { await tx?.close(); }
   }
   private async guardStopped() {
+    if (this.options.isRunning) {
+      if (await this.options.isRunning()) throw new Error(bt('switch.err.stop_app_first'));
+      return;
+    }
+    const platform = getPlatform();
+    if (platform.id === 'win32') {
+      const processes = await platform.listProcesses();
+      const layout = platform.resolveAppLayout(this.target.appPath);
+      const appRootNorm = layout.appRoot.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+      const running = processes.some(proc => {
+        const exeNorm = (proc.executablePath || '').replace(/\\/g, '/').toLowerCase();
+        const nameLower = basename(exeNorm).toLowerCase();
+        const cmdNorm = (proc.commandLine || '').replace(/\\/g, '/').toLowerCase();
+        if (exeNorm.startsWith(`${appRootNorm}/`)) return true;
+        if (nameLower === 'antigravity.exe' || nameLower.startsWith('antigravity - insiders')) return true;
+        if (platform.isInsidersPath(exeNorm) || platform.isInsidersPath(cmdNorm)) return true;
+        return false;
+      });
+      if (running) throw new Error(bt('switch.err.stop_app_first'));
+      return;
+    }
     const candidatePrefixes = Array.from(
       // Insiders shares official credentials: block switching while it runs, without managing it.
       new Set([this.target.appPath, '/Applications/Antigravity.app', '/Applications/Antigravity - Insiders.app']),
     ).map(p => p + '/Contents/');
-    const running = this.options.isRunning ? await this.options.isRunning() :
-      (await run('/bin/ps', ['-ax', '-ww', '-o', 'args='], { timeout: 3000 })).stdout.split('\n').some(line => {
-        const trimmed = line.trim();
-        return candidatePrefixes.some(prefix => trimmed.startsWith(prefix));
-      });
+    const running = (await run('/bin/ps', ['-ax', '-ww', '-o', 'args='], { timeout: 3000 })).stdout.split('\n').some(line => {
+      const trimmed = line.trim();
+      return candidatePrefixes.some(prefix => trimmed.startsWith(prefix));
+    });
     if (running) throw new Error(bt('switch.err.stop_app_first'));
   }
   private async archivePreviousJournal(previous: Journal) {
@@ -357,8 +339,12 @@ export class AccountSwitchService {
   }
 
   private async regular(path: string) {
-    const info = await lstat(path);
-    if (!info.isFile() || info.isSymbolicLink() || info.uid !== process.getuid?.()) throw new Error(bt('switch.err.invalid_login_file'));
+    try {
+      await getPlatform().assertOwnedPath(path, 'file');
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') throw error;
+      throw new Error(bt('switch.err.invalid_login_file'));
+    }
   }
   private async optionalRegular(path: string): Promise<boolean> {
     try {
