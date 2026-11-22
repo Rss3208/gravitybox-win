@@ -2,16 +2,19 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createConnection } from 'node:net';
-import { mkdtemp, mkdir } from 'node:fs/promises';
+import { mkdtemp, mkdir, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { getPlatform } from '../dist/platform/index.js';
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 /** Raw socket round-trip: the caller decides how the request is sliced. */
 function exchange(directory, chunks, { timeout = 5000 } = {}) {
+  const endpoint = getPlatform().getIpcEndpoint(directory);
   return new Promise((resolve, reject) => {
-    const socket = createConnection(join(directory, 'control.sock'));
+    const socket = createConnection(endpoint);
     let value = '';
     const timer = setTimeout(() => { socket.destroy(); reject(new Error('IPC 超时')); }, timeout);
     const finish = error => { clearTimeout(timer); socket.destroy(); error ? reject(error) : resolve(value); };
@@ -28,13 +31,14 @@ function exchange(directory, chunks, { timeout = 5000 } = {}) {
 }
 
 async function startBackend() {
-  const directory = await mkdtemp('/tmp/gb-ipc-hard-');
+  const directory = await mkdtemp(join(tmpdir(), 'gb-ipc-hard-'));
   await mkdir(join(directory, '词典'));
   const child = spawn(process.execPath, [
     fileURLToPath(new URL('../dist/main.js', import.meta.url)),
-    '--state-dir', directory, '--app', '/nonexistent', '--profile', '/tmp/gb-nonexistent-profile',
+    '--state-dir', directory, '--app', '/nonexistent', '--profile', join(directory, 'nonexistent-profile'),
     '--gemini-dir', join(directory, 'gemini'),
     '--home-dir',directory,'--app-support-dir',directory,
+    '--no-ipc-auth',
   ], { stdio: ['ignore', 'ignore', 'pipe'],env:{...process.env,GRAVITYBOX_PROBE_LS:'false'} });
   let errors = '';
   child.stderr.on('data', bytes => { errors += bytes; });

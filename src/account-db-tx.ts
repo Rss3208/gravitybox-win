@@ -1,5 +1,29 @@
-import { DatabaseSync } from 'node:sqlite';
+import { createRequire } from 'node:module';
+import type { DatabaseSync as DatabaseSyncType } from 'node:sqlite';
 import { bt } from './i18n.js';
+
+const requireBuiltin = createRequire(import.meta.url);
+let cachedDatabaseSyncCtor: typeof DatabaseSyncType | null = null;
+
+function getDatabaseSyncCtor(): typeof DatabaseSyncType {
+  if (cachedDatabaseSyncCtor) return cachedDatabaseSyncCtor;
+  const origEmitWarning = process.emitWarning;
+  process.emitWarning = ((warning: string | Error, ...args: any[]) => {
+    const msg = typeof warning === 'string' ? warning : warning?.message ?? '';
+    const type = typeof args[0] === 'string' ? args[0] : (args[0] as { type?: string } | undefined)?.type;
+    if (type === 'ExperimentalWarning' || /SQLite is an experimental feature/i.test(msg)) {
+      return;
+    }
+    return (origEmitWarning as any).call(process, warning, ...args);
+  }) as typeof process.emitWarning;
+  try {
+    const mod = requireBuiltin('node:sqlite') as { DatabaseSync: typeof DatabaseSyncType };
+    cachedDatabaseSyncCtor = mod.DatabaseSync;
+    return cachedDatabaseSyncCtor;
+  } finally {
+    process.emitWarning = origEmitWarning;
+  }
+}
 
 export const ACCOUNT_SWITCH_TOKEN_KEY = 'antigravityUnifiedStateSync.oauthToken';
 export const ACCOUNT_SWITCH_USER_KEY = 'antigravityUnifiedStateSync.userStatus';
@@ -23,19 +47,20 @@ export type AccountSwitchDbRows = Record<string, string>;
  * 在四阶段切号提交期间持有写事务，不依赖 `/usr/bin/sqlite3` 外部子进程。
  */
 export class NativeDatabaseTransaction {
-  private db: DatabaseSync | null = null;
+  private db: DatabaseSyncType | null = null;
   private inTransaction = false;
   private closed = false;
 
   constructor(private readonly dbPath: string) {}
 
-  private ensureOpen(): DatabaseSync {
+  private ensureOpen(): DatabaseSyncType {
     if (this.closed) {
       throw new Error(bt('switch.err.db_closed'));
     }
     if (!this.db) {
       try {
-        this.db = new DatabaseSync(this.dbPath);
+        const DatabaseSyncCtor = getDatabaseSyncCtor();
+        this.db = new DatabaseSyncCtor(this.dbPath);
         this.db.exec('PRAGMA busy_timeout = 3000;');
       } catch (error) {
         const msg = (error as Error)?.message ?? '';

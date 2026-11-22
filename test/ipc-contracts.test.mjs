@@ -9,7 +9,8 @@ import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { AccountsManager } from "../dist/accounts.js";
 import { canonicalPayload, IdempotencyStore } from "../dist/ipc-idempotency.js";
-import { promisify } from "node:util";
+import { getPlatform } from "../dist/platform/index.js";
+import { DatabaseSync } from "node:sqlite";
 import { ProtobufWriter } from "../dist/protobuf.js";
 
 // Fixture state and hooks are scoped to this group; child cases run serially.
@@ -46,13 +47,17 @@ async function makeManager() {
 
 // ---------- C01/C02：IPC 只读推荐不切号，且返回体不含 token ----------
 
-function exchange(directory, request, { timeout = 8000 } = {}) {
+async function exchange(directory, request, { timeout = 8000 } = {}) {
+  const platform = getPlatform();
+  const endpoint = platform.getIpcEndpoint(directory);
+  const authToken = await platform.readIpcAuthToken(directory);
+  const body = authToken && !('authToken' in request) ? { ...request, authToken } : request;
   return new Promise((resolve, reject) => {
-    const socket = createConnection(join(directory, 'control.sock'));
+    const socket = createConnection(endpoint);
     let value = '';
     const timer = setTimeout(() => { socket.destroy(); reject(new Error('IPC 超时')); }, timeout);
     const finish = error => { clearTimeout(timer); socket.destroy(); error ? reject(error) : resolve(value); };
-    socket.on('connect', () => socket.write(JSON.stringify(request) + '\n'));
+    socket.on('connect', () => socket.write(JSON.stringify(body) + '\n'));
     socket.on('data', chunk => { value += chunk; if (value.includes('\n')) finish(); });
     socket.on('error', finish);
   });
@@ -171,7 +176,6 @@ test('幂等性保留所有业务id，传输requestId可变，异目标必须冲
 
 // Fixture state and hooks are scoped to this group; child cases run serially.
 describeContractGroup("IPC 契约 · v090-engines", { concurrency: false }, async () => {
-const execFileAsync = promisify(execFile);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 async function until(fn, timeoutMs = 6000) {
@@ -184,15 +188,19 @@ async function until(fn, timeoutMs = 6000) {
   throw new Error('等待超时');
 }
 
-function rpc(directory, payload) {
+async function rpc(directory, payload) {
+  const platform = getPlatform();
+  const endpoint = platform.getIpcEndpoint(directory);
+  const authToken = await platform.readIpcAuthToken(directory);
+  const body = authToken && !('authToken' in payload) ? { ...payload, authToken } : payload;
   return new Promise((resolve, reject) => {
-    const socket = createConnection(join(directory, 'control.sock'));
+    const socket = createConnection(endpoint);
     let value = '';
     socket.setTimeout(4000, () => {
       socket.destroy();
       reject(new Error('IPC 超时'));
     });
-    socket.on('connect', () => socket.write(JSON.stringify(payload) + '\n'));
+    socket.on('connect', () => socket.write(JSON.stringify(body) + '\n'));
     socket.on('error', reject);
     socket.on('data', chunk => {
       value += chunk;
@@ -240,12 +248,16 @@ test('Main IPC 集成测试: 0.9.0 账号管理、额度策略、Token 用量与
   const f9 = ProtobufWriter.encodeLengthDelimited(9, tInner);
   const genBlob = ProtobufWriter.encodeLengthDelimited(1, Buffer.concat([f19, f4, f9]));
 
-  await execFileAsync('/usr/bin/sqlite3', [
-    mockDbPath,
-    `CREATE TABLE steps (idx INTEGER PRIMARY KEY, step_type INTEGER, metadata BLOB, status INTEGER, step_payload BLOB);
-     CREATE TABLE gen_metadata (idx INTEGER PRIMARY KEY, data BLOB);
-     INSERT INTO gen_metadata (idx, data) VALUES (1, X'${genBlob.toString('hex')}');`,
-  ]);
+  const mockDb = new DatabaseSync(mockDbPath);
+  try {
+    mockDb.exec(
+      `CREATE TABLE steps (idx INTEGER PRIMARY KEY, step_type INTEGER, metadata BLOB, status INTEGER, step_payload BLOB);
+       CREATE TABLE gen_metadata (idx INTEGER PRIMARY KEY, data BLOB);
+       INSERT INTO gen_metadata (idx, data) VALUES (1, X'${genBlob.toString('hex')}');`
+    );
+  } finally {
+    mockDb.close();
+  }
 
   // 2. 注入沙箱独立凭据，供 account_save_current 提取
   const standaloneDir = join(mockHomeDir, '.gemini');
