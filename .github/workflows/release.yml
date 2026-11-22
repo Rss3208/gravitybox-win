@@ -118,6 +118,47 @@ jobs:
       - name: Verify Uploaded Draft Metadata
         run: node tools/release-control.mjs inspect
 
+  build-draft-win:
+    name: Verify & Prepare Windows Artifacts
+    if: ${{ github.event_name == 'push' || !inputs.inspect_only }}
+    needs: build-draft
+    runs-on: windows-latest
+    timeout-minutes: 25
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - name: Checkout Tagged Code
+        uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag || github.ref_name }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Install Dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Verify & Package Windows
+        run: |
+          node tools/verify.mjs --no-vendor
+          node tools/win/package-win.mjs
+
+      - name: Upload Windows Assets to Draft Release
+        shell: pwsh
+        run: |
+          $ver = "${{ env.RELEASE_TAG }}".TrimStart('v')
+          $zip = "成品/GravityBox-$ver-win-x64-portable.zip"
+          gh release upload "${{ env.RELEASE_TAG }}" "$zip" "$zip.sha256" --clobber
+
       - name: Preserve Verification Reports
         if: always()
         uses: actions/upload-artifact@v4

@@ -88,18 +88,18 @@ export function resolveAppLayoutForPlatform(platformId: PlatformId, appPath: str
     };
   }
 
-  const resourcesDir = join(appPath, 'Contents', 'Resources');
-  const binDir = join(resourcesDir, 'bin');
+  const resourcesDir = posixPath.join(appPath, 'Contents', 'Resources');
+  const binDir = posixPath.join(resourcesDir, 'bin');
   return {
     appRoot: appPath,
-    executablePath: join(appPath, 'Contents', 'MacOS', 'Antigravity'),
+    executablePath: posixPath.join(appPath, 'Contents', 'MacOS', 'Antigravity'),
     resourcesDir,
-    asarPath: join(resourcesDir, 'app.asar'),
-    asarUnpackedPath: join(resourcesDir, 'app.asar.unpacked'),
+    asarPath: posixPath.join(resourcesDir, 'app.asar'),
+    asarUnpackedPath: posixPath.join(resourcesDir, 'app.asar.unpacked'),
     binDir,
-    languageServerPath: join(binDir, 'language_server'),
+    languageServerPath: posixPath.join(binDir, 'language_server'),
     languageServerExePattern: /^language_server$/,
-    versionSourcePath: join(appPath, 'Contents', 'Info.plist'),
+    versionSourcePath: posixPath.join(appPath, 'Contents', 'Info.plist'),
   };
 }
 

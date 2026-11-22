@@ -93,7 +93,7 @@ async function reportSuccessToStepSummary({ version, scope, digest, steps }) {
     `| **版本号** | \`v${version}\` |`,
     `| **门禁范围** | ${describeValidationScope(scope)} |`,
     `| **源码指纹** | \`${digest.slice(0, 16)}...\` |`,
-    `| **运行环境** | macOS (${process.arch}) / Node ${process.version} |`,
+    `| **运行环境** | ${process.platform} (${process.arch}) / Node ${process.version} |`,
     '| **原生 UI 夹具** | 默认不运行；按需执行 `npm run test:native-ui`，安装后另行人工验收 |',
     '',
     '### 已通过的校验步骤',
@@ -148,36 +148,44 @@ async function main() {
 
   const privacyPromise = step('隐私门禁', process.execPath, [join(root, 'tools/check-privacy.mjs')]);
 
-  let swiftPromise = null;
+  let nativePromise = null;
   if (!dictOnly) {
-    await mkdir(join(root, '.cache'), { recursive: true });
-    const swiftBinaryPath = join(root, '.cache/GravityBox-native-verified');
-    const swiftMetaPath = join(root, '.cache/GravityBox-native-verified.meta.json');
-    const forceSwift = argv.includes('--force-swift') || process.env.GRAVITYBOX_FORCE_SWIFT === '1';
-    const swiftInputsDigest = await computeSwiftInputsDigest(root);
-    let swiftCacheHit = false;
-    if (!forceSwift && existsSync(swiftBinaryPath) && existsSync(swiftMetaPath)) {
-      try {
-        const meta = JSON.parse(await readFile(swiftMetaPath, 'utf8'));
-        if (meta?.swiftInputsDigest === swiftInputsDigest && typeof meta?.binarySha256 === 'string') {
-          const actualBinSha = createHash('sha256').update(await readFile(swiftBinaryPath)).digest('hex');
-          swiftCacheHit = actualBinSha === meta.binarySha256;
-        }
-      } catch {
-        swiftCacheHit = false;
-      }
-    }
-    if (swiftCacheHit) {
-      completedSteps.push('Swift检查');
-      timings.push({ name: 'Swift检查', durationMs: 0 });
-      process.stdout.write('通过：Swift检查（源码未变更，复用已校验产物）\n');
-      swiftPromise = Promise.resolve();
+    if (process.platform === 'win32') {
+      const localDotnet = process.env.LOCALAPPDATA
+        ? join(process.env.LOCALAPPDATA, 'Microsoft', 'dotnet', 'dotnet.exe')
+        : '';
+      const dotnetBin = localDotnet && existsSync(localDotnet) ? localDotnet : 'dotnet';
+      nativePromise = step('.NET8构建与测试', dotnetBin, ['test', join(root, 'native-win/GravityBox.sln'), '-c', 'Release']);
     } else {
-      const swiftArgs = await nativeBuildArgs(root, swiftBinaryPath);
-      swiftPromise = step('Swift检查', '/usr/bin/swiftc', swiftArgs).then(async () => {
-        const binarySha256 = createHash('sha256').update(await readFile(swiftBinaryPath)).digest('hex');
-        await writeFile(swiftMetaPath, JSON.stringify({ swiftInputsDigest, binarySha256, at: new Date().toISOString() }, null, 2) + '\n');
-      });
+      await mkdir(join(root, '.cache'), { recursive: true });
+      const swiftBinaryPath = join(root, '.cache/GravityBox-native-verified');
+      const swiftMetaPath = join(root, '.cache/GravityBox-native-verified.meta.json');
+      const forceSwift = argv.includes('--force-swift') || process.env.GRAVITYBOX_FORCE_SWIFT === '1';
+      const swiftInputsDigest = await computeSwiftInputsDigest(root);
+      let swiftCacheHit = false;
+      if (!forceSwift && existsSync(swiftBinaryPath) && existsSync(swiftMetaPath)) {
+        try {
+          const meta = JSON.parse(await readFile(swiftMetaPath, 'utf8'));
+          if (meta?.swiftInputsDigest === swiftInputsDigest && typeof meta?.binarySha256 === 'string') {
+            const actualBinSha = createHash('sha256').update(await readFile(swiftBinaryPath)).digest('hex');
+            swiftCacheHit = actualBinSha === meta.binarySha256;
+          }
+        } catch {
+          swiftCacheHit = false;
+        }
+      }
+      if (swiftCacheHit) {
+        completedSteps.push('Swift检查');
+        timings.push({ name: 'Swift检查', durationMs: 0 });
+        process.stdout.write('通过：Swift检查（源码未变更，复用已校验产物）\n');
+        nativePromise = Promise.resolve();
+      } else {
+        const swiftArgs = await nativeBuildArgs(root, swiftBinaryPath);
+        nativePromise = step('Swift检查', '/usr/bin/swiftc', swiftArgs).then(async () => {
+          const binarySha256 = createHash('sha256').update(await readFile(swiftBinaryPath)).digest('hex');
+          await writeFile(swiftMetaPath, JSON.stringify({ swiftInputsDigest, binarySha256, at: new Date().toISOString() }, null, 2) + '\n');
+        });
+      }
     }
   }
 
@@ -304,14 +312,23 @@ async function main() {
       GRAVITYBOX_SKIP_REPO_PRIVACY_TEST: '1',
       ...(shouldVerifyLatestVendor ? { GRAVITYBOX_SKIP_VENDOR_PROVENANCE_TEST: '1' } : {}),
     };
-    const settled = await Promise.allSettled([
+    const testArgs = process.platform === 'win32'
+      ? [join(root, 'tools/run-tests.mjs'), '--win']
+      : [join(root, 'tools/run-tests.mjs')];
+    if (process.platform === 'win32' && nativePromise) {
+      await nativePromise;
+    }
+    const parallelChecks = [
       privacyPromise,
-      swiftPromise,
-      step('UI测试类型检查', process.execPath, [join(root, 'tools/native-build.mjs'), '--typecheck', '--ui-test']),
-      step('单元与集成', process.execPath, [join(root, 'tools/run-tests.mjs')], { env: unitTestEnv }),
+      ...(process.platform === 'win32' ? [] : [nativePromise]),
+      step('单元与集成', process.execPath, testArgs, { env: unitTestEnv }),
       step('浏览器回归', process.execPath, [join(root, 'test/browser.mjs')]),
       runDictionaryGates(),
-    ]);
+    ];
+    if (process.platform !== 'win32') {
+      parallelChecks.splice(2, 0, step('UI测试类型检查', process.execPath, [join(root, 'tools/native-build.mjs'), '--typecheck', '--ui-test']));
+    }
+    const settled = await Promise.allSettled(parallelChecks);
     const failed = settled.find(item => item.status === 'rejected');
     if (failed) throw failed.reason;
   }
@@ -328,22 +345,27 @@ async function main() {
     return;
   }
   await mkdir(join(root, '.cache'), { recursive: true });
+  const swiftBin = join(root, '.cache/GravityBox-native-verified');
   await writeFile(join(root, '.cache/verified-release.json'), JSON.stringify({
     digest,
     artifacts: await collectReleaseArtifacts(root),
-    nativeBinarySha256: createHash('sha256').update(await readFile(join(root, '.cache/GravityBox-native-verified'))).digest('hex'),
+    ...(process.platform !== 'win32' && existsSync(swiftBin)
+      ? { nativeBinarySha256: createHash('sha256').update(await readFile(swiftBin)).digest('hex') }
+      : { winNativeVerified: process.platform === 'win32' }),
     at: new Date().toISOString(),
     version,
     nativeUi: { included: false, command: 'npm run test:native-ui' },
     ...recordedScopeFields(scope),
   }));
 
-  /* 发布一致性：当前源码 / 已验证记录 / 成品 DMG sidecar 与实际哈希 / 验收摘要 / 已安装 build-info。
-     开发阶段默认只警告（历史摘要与旧 sidecar 不应阻断日常验证）；最终发版加 --strict 让任何不一致失败。 */
-  const strict = argv.includes('--strict');
-  const release = await checkReleaseConsistency({ root, digest, strict });
-  for (const line of renderReleaseConsistency(release)) process.stdout.write(line + '\n');
-  if (strict && release.warnings.length) throw new Error(`发布一致性检查未通过（--strict，${release.warnings.length} 项警告），见上方明细`);
+  if (process.platform !== 'win32') {
+    /* 发布一致性：当前源码 / 已验证记录 / 成品 DMG sidecar 与实际哈希 / 验收摘要 / 已安装 build-info。
+       开发阶段默认只警告（历史摘要与旧 sidecar 不应阻断日常验证）；最终发版加 --strict 让任何不一致失败。 */
+    const strict = argv.includes('--strict');
+    const release = await checkReleaseConsistency({ root, digest, strict });
+    for (const line of renderReleaseConsistency(release)) process.stdout.write(line + '\n');
+    if (strict && release.warnings.length) throw new Error(`发布一致性检查未通过（--strict，${release.warnings.length} 项警告），见上方明细`);
+  }
   if (scope.mode === VALIDATION_SCOPE_TARGETED) process.stdout.write(`[verify] 发布通过仅覆盖 ${scope.targetAppVersions.join('、')}；${scope.historicalUnverified.join('、') || '无历史版本'} 本轮未验证，不得宣称通过。\n`);
   await reportSuccessToStepSummary({ version, scope, digest, steps: completedSteps });
   await writeFile(join(out, 'gate-timings.json'), JSON.stringify({ totalMs: performance.now() - startedAt, steps: timings }, null, 2) + '\n');

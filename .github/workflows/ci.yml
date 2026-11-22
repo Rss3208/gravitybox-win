@@ -209,11 +209,79 @@ jobs:
       - name: Native Swift Unit Tests
         run: node tools/run-tests.mjs --native
 
+  win-unit-and-dict:
+    name: Windows Unit Tests & Dictionary Gates
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Build TypeScript & Runtime
+        run: npm run build
+
+      - name: Fast Unit & Windows Integration Tests
+        run: node tools/run-tests.mjs --fast --win
+
+      - name: Supported Dictionary Gates
+        run: node tools/verify.mjs --dict-only --no-vendor
+
+  win-browser-e2e:
+    name: Windows Browser CDP E2E
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Build TypeScript & Runtime
+        run: npm run build
+
+      - name: Setup Windows Test Browser
+        run: node tools/setup-test-browser.mjs
+
+      - name: Headless Browser Regression Suite
+        run: node test/browser.mjs
+
+  win-native-dotnet:
+    name: Windows .NET 8 WPF & Win32 Tests
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build & Test .NET 8 Solution
+        run: dotnet test native-win/GravityBox.sln -c Release
+
   ci-gate:
     name: CI Gate
     runs-on: ubuntu-latest
     if: always()
-    needs: [changes, docs-check, unit-and-dict, browser-e2e, native-swift]
+    needs: [changes, docs-check, unit-and-dict, browser-e2e, native-swift, win-unit-and-dict, win-browser-e2e, win-native-dotnet]
     steps:
       - name: Evaluate Required Gate Status
         shell: bash
@@ -223,7 +291,7 @@ jobs:
             exit 1
           fi
           if [ "${{ needs.changes.outputs.code }}" = "true" ]; then
-            for res in "${{ needs.unit-and-dict.result }}" "${{ needs.browser-e2e.result }}" "${{ needs.native-swift.result }}"; do
+            for res in "${{ needs.unit-and-dict.result }}" "${{ needs.browser-e2e.result }}" "${{ needs.native-swift.result }}" "${{ needs.win-unit-and-dict.result }}" "${{ needs.win-browser-e2e.result }}" "${{ needs.win-native-dotnet.result }}"; do
               if [ "$res" != "success" ]; then
                 echo "Code verification job failed or skipped: $res"
                 exit 1
