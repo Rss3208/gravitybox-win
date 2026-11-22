@@ -304,7 +304,9 @@ export async function restoreIncrementalSnapshot(
  */
 function layerRank(name: string): [number, number[], string] {
   if (name === '个人覆盖.json') return [3, [], name];
-  if (name.toLowerCase() === 'base.json') return [0, [], name];
+  const lower = name.toLowerCase();
+  if (lower === 'base.json') return [0, [0], name];
+  if (lower === 'win32.json') return [0, [1], name];
   const version = name.match(/^(\d+(?:\.\d+)*)\.json$/);
   if (version) {
     const parts = version[1]!.split('.').map(Number);
@@ -454,7 +456,13 @@ function setLayerFileCacheEntry(filePath: string, entry: { mtimeMs: number; size
   layerFileCache.set(filePath, entry);
 }
 
-export async function loadDictionaryLayers(baseDir: string, userDir?: string,targetVersion?:string): Promise<LayeredDictionary> {
+export async function loadDictionaryLayers(
+  baseDir: string,
+  userDir?: string,
+  targetVersion?: string,
+  options?: { platform?: NodeJS.Platform }
+): Promise<LayeredDictionary> {
+  const activePlatform = options?.platform ?? process.platform;
   const entries: Record<string, string> = Object.create(null);
   const templateRuleByKey = new Map<string, DeclarativeTemplateRule>();
   const owner = new Map<string, { file: string; dir: string }>();
@@ -465,6 +473,9 @@ export async function loadDictionaryLayers(baseDir: string, userDir?: string,tar
   for (const dir of userDir ? [baseDir, userDir] : [baseDir]) {
     const names = (await readdir(dir)).filter(name => name.endsWith('.json')).sort(compareLayers);
     for (const file of names) {
+      if (file.toLowerCase() === 'win32.json' && activePlatform !== 'win32') {
+        continue;
+      }
       if (file.toLowerCase() === TEMPLATE_RULES_FILE) {
         const ruleContent = await readFile(join(dir, file), 'utf8');
         if (ruleContent.length > 512_000) throw new Error(bt('dictionary.err.size_limit', { file }));
@@ -537,8 +548,13 @@ export async function resolveDictionaryForLocale(baseDir: string, locale: string
   }
 }
 
-export async function loadDictionary(baseDir: string, userDir?: string,targetVersion?:string): Promise<Dictionary> {
-  return (await loadDictionaryLayers(baseDir, userDir,targetVersion)).dictionary;
+export async function loadDictionary(
+  baseDir: string,
+  userDir?: string,
+  targetVersion?: string,
+  options?: { platform?: NodeJS.Platform }
+): Promise<Dictionary> {
+  return (await loadDictionaryLayers(baseDir, userDir, targetVersion, options)).dictionary;
 }
 
 export class DictionaryStore extends EventEmitter {

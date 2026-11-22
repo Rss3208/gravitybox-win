@@ -20,9 +20,15 @@ export const SUPPORTED_BUNDLES = new Map<string, string | readonly string[]>([
   ['2.32.1', '4c0a1ff5659e7dd92e6ad249a386c0dbce2c8e94b88522a2f366ff20b397081e'],
   ['2.32.2', '4c0a1ff5659e7dd92e6ad249a386c0dbce2c8e94b88522a2f366ff20b397081e'],
   ['2.33.0', 'f066a497c9c61198394cb3218e42ff61d85b03910d81282589c3ef066905f347'],
+]);
+/** 跨平台实机已验真官方 main.js 指纹补充表（含 Windows 2.34.0 等独立构建版本）。 */
+export const PLATFORM_VERIFIED_BUNDLES = new Map<string, readonly string[]>([
   ['2.34.0', ['d52ce739c15044c02a32e1b9df62bfe39dd8164c70a2ab783540e6ed5e070251']],
 ]);
-export const VERIFIED_VERSIONS = new Set(SUPPORTED_BUNDLES.keys());
+export const VERIFIED_VERSIONS = new Set([
+  ...SUPPORTED_BUNDLES.keys(),
+  ...PLATFORM_VERIFIED_BUNDLES.keys(),
+]);
 
 export function isVerifiedVersion(version?: string): boolean {
   return typeof version === 'string' && VERIFIED_VERSIONS.has(version);
@@ -30,13 +36,19 @@ export function isVerifiedVersion(version?: string): boolean {
 
 export function isVerifiedBundleHash(version?: string, sha256?: string): boolean {
   if (typeof version !== 'string' || typeof sha256 !== 'string' || !sha256) return false;
-  const expected = SUPPORTED_BUNDLES.get(version);
-  if (!expected) return false;
   const normalizedSha = sha256.trim().toLowerCase();
-  if (typeof expected === 'string') {
-    return expected.toLowerCase() === normalizedSha;
+  const expected = SUPPORTED_BUNDLES.get(version);
+  if (typeof expected === 'string' && expected.toLowerCase() === normalizedSha) {
+    return true;
   }
-  return expected.some(item => item.toLowerCase() === normalizedSha);
+  if (Array.isArray(expected) && expected.some(item => item.toLowerCase() === normalizedSha)) {
+    return true;
+  }
+  const platformExpected = PLATFORM_VERIFIED_BUNDLES.get(version);
+  if (platformExpected && platformExpected.some(item => item.toLowerCase() === normalizedSha)) {
+    return true;
+  }
+  return false;
 }
 
 export const normalizeText = (text: string): string => text.replace(/\s+/g, ' ').trim();

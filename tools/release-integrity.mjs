@@ -5,7 +5,7 @@ import { basename, join } from 'node:path';
 
 /** Dictionary maintenance files are neither release inputs nor packaged resources. */
 export function includeDictionaryPath(path) {
-  const parts = path.split('/');
+  const parts = String(path).replaceAll('\\', '/').split('/');
   return parts[0] !== 'dict' || !parts.slice(1).some(part => part.startsWith('.'));
 }
 

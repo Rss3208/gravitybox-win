@@ -225,7 +225,7 @@ test('巡检编辑仅允许明确 UI，保留场景，修改后失效旧实机�
 // Fixture state and hooks are scoped to this group; child cases run serially.
 describeContractGroup("词典与抽取 · refactor", { concurrency: false }, async () => {
 const root = new URL('../', import.meta.url);
-async function state() { const directory = await mkdtemp('/tmp/gb-test-'); await mkdir(join(directory, '词典')); return directory; }
+async function state() { const directory = await mkdtemp(join(tmpdir(), 'gb-test-')); await mkdir(join(directory, '词典')); return directory; }
 
 test('运行时与发布门禁采用相同词典优先级', async () => {
   const runtime = await loadDictionaryLayers(fileURLToPath(new URL('dict/', root))); const gate = await loadDictLayers(fileURLToPath(new URL('dict/', root)));
