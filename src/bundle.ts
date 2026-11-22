@@ -5,7 +5,7 @@ import type { Dictionary } from './dictionary.js';
 import { bt } from './i18n.js';
 
 /** 已收录的界面包指纹清单；不代表当前构建逐版本完成实机验收。 */
-export const SUPPORTED_BUNDLES = new Map([
+export const SUPPORTED_BUNDLES = new Map<string, string | readonly string[]>([
   ['2.23.0', '867d1990b61d87f4b9ff8c5ecb1551c8688135267f32e56e02563f2d3e78fd68'],
   ['2.23.1', 'ad12ecf66061edab6a3835d1360e1bad50787bc7b2f2c9d86568281360864696'],
   ['2.24.0', '7a0bf9576e8ffd8e9fb39716368b1c79c2ccd965da65e049fe846100f34edf88'],
@@ -20,11 +20,23 @@ export const SUPPORTED_BUNDLES = new Map([
   ['2.32.1', '4c0a1ff5659e7dd92e6ad249a386c0dbce2c8e94b88522a2f366ff20b397081e'],
   ['2.32.2', '4c0a1ff5659e7dd92e6ad249a386c0dbce2c8e94b88522a2f366ff20b397081e'],
   ['2.33.0', 'f066a497c9c61198394cb3218e42ff61d85b03910d81282589c3ef066905f347'],
+  ['2.34.0', ['d52ce739c15044c02a32e1b9df62bfe39dd8164c70a2ab783540e6ed5e070251']],
 ]);
 export const VERIFIED_VERSIONS = new Set(SUPPORTED_BUNDLES.keys());
 
 export function isVerifiedVersion(version?: string): boolean {
   return typeof version === 'string' && VERIFIED_VERSIONS.has(version);
+}
+
+export function isVerifiedBundleHash(version?: string, sha256?: string): boolean {
+  if (typeof version !== 'string' || typeof sha256 !== 'string' || !sha256) return false;
+  const expected = SUPPORTED_BUNDLES.get(version);
+  if (!expected) return false;
+  const normalizedSha = sha256.trim().toLowerCase();
+  if (typeof expected === 'string') {
+    return expected.toLowerCase() === normalizedSha;
+  }
+  return expected.some(item => item.toLowerCase() === normalizedSha);
 }
 
 export const normalizeText = (text: string): string => text.replace(/\s+/g, ' ').trim();

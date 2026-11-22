@@ -22,7 +22,7 @@ import {
 import { compareLayers, type Dictionary } from './dictionary.js';
 import { normalizeLocale, translate } from './i18n.js';
 import {
-  isEnglishSource, SUPPORTED_BUNDLES,
+  isEnglishSource, SUPPORTED_BUNDLES, isVerifiedBundleHash,
   fetchBundleFromOrigin,
   computeBundleSha256,
   extractUiStrings, extractedKind,
@@ -277,7 +277,7 @@ export class Controller {
       this.publish('error', (error as Error).message); this.retry();
     }
   }
-  private verifiedBundle(){const expected=SUPPORTED_BUNDLES.get(this.status.appVersion??'');return !!this.options.fixture||!!expected&&expected===this.status.bundleSha256;}
+  private verifiedBundle(){return !!this.options.fixture||isVerifiedBundleHash(this.status.appVersion,this.status.bundleSha256);}
   private shouldUseFullTranslation(session?: PageSession): boolean {
     if (this.verifiedBundle()) return true;
     if (!session || !session.domContractPassed || !session.bundleSha256) return false;
