@@ -1,0 +1,26 @@
+<Window x:Class="GravityBox.App.Views.Dialogs.MaintenanceDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:GravityBox.App.Controls"
+        Title="存储与维护"
+        Width="520"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource BackgroundBrush}">
+    <StackPanel Margin="20">
+        <TextBlock Text="存储空间组成" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,8" />
+        <controls:CacheCompositionBar Height="10"
+                                      RuntimeBytes="{Binding RuntimeCacheBytes}"
+                                      LogsBytes="{Binding LogsBytes}"
+                                      ProtectedBytes="{Binding ProtectedBytes}"
+                                      Margin="0,0,0,14" />
+
+        <CheckBox Content="清理运行缓存" IsChecked="{Binding ClearRuntimeCache}" Style="{StaticResource DesignSwitchStyle}" Margin="0,0,0,8" />
+        <CheckBox Content="清理超期后台日志" IsChecked="{Binding ClearLogs}" Style="{StaticResource DesignSwitchStyle}" Margin="0,0,0,14" />
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="原位还原最近快照" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,8,0" Command="{Binding RestoreLatestSnapshotCommand}" />
+            <Button Content="执行智能清理" Style="{StaticResource PrimaryButtonStyle}" Command="{Binding RunSmartClearCommand}" />
+        </StackPanel>
+    </StackPanel>
+</Window>
