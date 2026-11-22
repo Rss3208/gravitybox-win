@@ -8,9 +8,10 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createConnection } from 'node:net';
 import { existsSync } from 'node:fs';
-import { TEST_CHROME_PATH } from '../tools/setup-test-browser.mjs';
+import { resolveTestChromePath } from '../tools/setup-test-browser.mjs';
 import { CDP } from '../dist/cdp.js';
 import { DEEP_STEPS } from '../dist/deep-scan.js';
+import { getPlatform } from '../dist/platform/index.js';
 import { DatabaseSync } from 'node:sqlite';
 import { ProtobufWriter as HudWriter } from '../dist/protobuf.js';
 const execute = promisify(execFile);
@@ -37,11 +38,16 @@ async function until(fn, timeout = 8000, label = '') {
   throw new Error(`等待条件超时${hint}${last ? ': ' + last.message : ''}`);
 }
 async function command(command) {
+  const platform = getPlatform();
+  const endpoint = platform.getIpcEndpoint(state);
+  const authToken = await platform.readIpcAuthToken?.(state);
+  const payload = typeof command === 'object' ? { ...command } : { command };
+  if (authToken && !payload.authToken) payload.authToken = authToken;
   return new Promise((resolve, reject) => {
-    const socket = createConnection(join(state, 'control.sock'));
+    const socket = createConnection(endpoint);
     let buffer = '';
     socket.setTimeout(10000, () => { socket.destroy(); reject(new Error('命令超时')); });
-    socket.on('connect', () => socket.write(JSON.stringify(typeof command==='object'?command:{command}) + '\n'));
+    socket.on('connect', () => socket.write(JSON.stringify(payload) + '\n'));
     socket.on('error', reject);
     socket.on('data', chunk => { buffer += chunk; if (buffer.includes('\n')) { socket.end(); resolve(JSON.parse(buffer.split('\n')[0])); } });
   });
@@ -97,7 +103,8 @@ async function browserCommand(method, params) {
 }
 try {
   await mkdir(profile);
-  const chromeBin = process.env.CHROME_BIN || process.env.CHROME_PATH || process.env.PUPPETEER_EXECUTABLE_PATH || (existsSync(TEST_CHROME_PATH) ? TEST_CHROME_PATH : '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome');
+  const chromeBin = resolveTestChromePath();
+  if (!chromeBin || !existsSync(chromeBin)) throw new Error('未找到可用的测试浏览器 (CHROME_BIN)');
   // These fixtures exercise DOM behavior with software rendering, not GPU behavior.
   chrome = spawn(chromeBin, ['--headless=new', '--disable-gpu', `--user-data-dir=${profile}`, '--remote-debugging-port=0', '--no-first-run', '--no-default-browser-check', '--disable-background-networking', '--disable-extensions', `${origin}/fixture`], { stdio: ['ignore', 'ignore', 'pipe'] });
   chrome.stderr.on('data', chunk => { chromeErrors = (chromeErrors + chunk.toString()).slice(-16000); });
@@ -1876,8 +1883,10 @@ ${engine}`,auth.executionContextId);assert.equal(await cdp.evaluate('!!globalThi
     await main.evaluate(`document.querySelector('#binding-pane-0').remove();document.querySelector('#binding-pane-1').remove()`);await command('resume');
     await until(async()=>await text(main,'#settings')==='设置');
   });
-  const resources = (await execute('/bin/ps', ['-p', String(backend.pid), '-o', 'rss=,%cpu=,time='])).stdout.trim();
   const finalStatus = await status();
+  const resources = process.platform === 'win32'
+    ? `pid=${backend.pid} rssMB=${finalStatus.rssMB}`
+    : (await execute('/bin/ps', ['-p', String(backend.pid), '-o', 'rss=,%cpu=,time='])).stdout.trim();
   const finalHeap = await main.send('Runtime.getHeapUsage');
   await check('退出助手撤销翻译且不退出浏览器', async () => {
     await command('stop'); await until(async () => backend.exitCode === 0);
@@ -1890,9 +1899,13 @@ ${engine}`,auth.executionContextId);assert.equal(await cdp.evaluate('!!globalThi
   await writeFile(join(evidenceDir, 'browser-failure.json'), JSON.stringify({ checks, error: error.stack, backendErrors, chromeErrors, browserEndpoint, chromeExit: { code: chrome?.exitCode, signal: chrome?.signalCode } }, null, 2));
   throw error;
 } finally {
-  if (backend?.exitCode === null) { try { await command('stop'); } catch { backend.kill('SIGTERM'); } }
-  main?.close(); second?.close(); chrome?.kill('SIGTERM');
+  if (backend?.exitCode === null) { try { await command('stop'); } catch { backend.kill(); } }
+  main?.close(); second?.close();
+  if (chrome?.exitCode === null) {
+    chrome.kill();
+    await Promise.race([new Promise(resolve => chrome.once('exit', resolve)), new Promise(resolve => setTimeout(resolve, 2000))]);
+  }
   await new Promise(resolve => server.close(resolve));
   await new Promise(resolve => setTimeout(resolve, 150));
-  await rm(temp, { recursive: true, force: true });
+  await rm(temp, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }).catch(() => {});
 }

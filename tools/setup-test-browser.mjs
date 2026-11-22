@@ -7,6 +7,7 @@ import { promisify } from 'node:util';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { fileSha256 } from './release-integrity.mjs';
+import { resolveWin32TestBrowserPath, setupWin32TestBrowser } from './win/setup-test-browser-win.mjs';
 
 // Update version and both hashes together after checking Google's Chrome for Testing download.
 export const TEST_CHROME_VERSION = '157.0.8103.38';
@@ -16,7 +17,22 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const destination = join(root, '.cache', `test-chrome-${TEST_CHROME_VERSION}-mac-arm64`);
 export const TEST_CHROME_PATH = join(destination, 'chrome-headless-shell');
 
+export function resolveTestChromePath() {
+  const fromEnv = process.env.CHROME_BIN || process.env.CHROME_PATH || process.env.PUPPETEER_EXECUTABLE_PATH;
+  if (fromEnv && existsSync(fromEnv)) return fromEnv;
+  if (process.platform === 'win32') {
+    return resolveWin32TestBrowserPath();
+  }
+  return existsSync(TEST_CHROME_PATH)
+    ? TEST_CHROME_PATH
+    : '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+}
+
 async function main() {
+  if (process.platform === 'win32') {
+    await setupWin32TestBrowser();
+    return;
+  }
   if (process.platform !== 'darwin' || process.arch !== 'arm64') throw Error('固定测试浏览器目前支持 macOS ARM64；其他环境请通过 CHROME_BIN 指定兼容的测试浏览器');
   if (!existsSync(TEST_CHROME_PATH)) {
     await mkdir(join(root, '.cache'), { recursive: true });
