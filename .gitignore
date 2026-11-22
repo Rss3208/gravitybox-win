@@ -34,3 +34,11 @@
 # Local assistant instructions
 /AGENTS.md
 /.agents/
+
+# Windows .NET / MSBuild artifacts
+native-win/**/bin/
+native-win/**/obj/
+native-win/**/TestResults/
+native-win/.vs/
+*.exe
+*.zip

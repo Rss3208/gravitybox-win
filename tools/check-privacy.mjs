@@ -64,7 +64,7 @@ const BINARY_EXTENSIONS = new Set([
 
 const SKIPPED_DIRS = new Set([
   '.git', '.agents', 'node_modules', 'dist', 'build', '.cache',
-  'vendor', '质检报告', '成品', 'reports', 'artifacts',
+  'vendor', '质检报告', '成品', 'reports', 'artifacts', 'obj', 'TestResults',
 ]);
 
 const EMAIL_RE = /([A-Za-z0-9._%+-]+)@([A-Za-z0-9.-]+\.[A-Za-z]{2,})/g;
@@ -72,7 +72,7 @@ const RETINA_ASSET_RE = /^(?:1|2|3)x\.(?:png|jpe?g|webp|gif|svg)$/i;
 const LOCAL_HOME_PATH_PATTERNS = [
   { label: '/Users', re: /(?:^|[^A-Za-z0-9_])\/Users\/([A-Za-z0-9._-]+)(?=\/|[^A-Za-z0-9._-]|$)/g, marker: '/Users/' },
   { label: '/home', re: /(?:^|[^A-Za-z0-9_])\/home\/([A-Za-z0-9._-]+)(?=\/|[^A-Za-z0-9._-]|$)/g, marker: '/home/' },
-  { label: 'C:\\Users', re: /(?:^|[^A-Za-z0-9_])[A-Za-z]:(?:\\{1,2}|\/)Users(?:\\{1,2}|\/)([A-Za-z0-9._-]+)(?=\\|\/|[^A-Za-z0-9._-]|$)/gi, marker: 'Users' },
+  { label: 'C:\\Users', re: /(?:^|[^A-Za-z0-9_])[A-Za-z]:(?:\\{1,2}|\/)Users(?:\\{1,2}|\/)([A-Za-z0-9._\-\u4e00-\u9fff]+)(?=\\|\/|[^A-Za-z0-9._\-\u4e00-\u9fff]|$)/gi, marker: 'Users' },
 ];
 const SECRET_SYNTHETIC_EXEMPT_RE = /(?:abcde|secret|dummy|fake|example|test|placeholder|fixture)/i;
 const SECRET_PATTERNS = [
@@ -96,6 +96,7 @@ export function isExcludedPrivacyPath(filePath) {
   if (rel === 'AGENTS.md' || rel.startsWith('licenses/')) return true;
   const segments = rel.split('/');
   if (segments.some(seg => SKIPPED_DIRS.has(seg))) return true;
+  if (rel.startsWith('native-win/') && (segments.includes('bin') || segments.includes('obj'))) return true;
   if (BINARY_EXTENSIONS.has(extname(rel).toLowerCase())) return true;
   return false;
 }
