@@ -198,7 +198,7 @@ export const HUD_STYLES_CSS = `
   background-color: var(--hud-bg);
   border: 1px solid var(--hud-border);
   color: var(--hud-text-secondary);
-  font-family: "Google Sans Text", "Google Sans", -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", sans-serif;
+  font-family: "Google Sans Text", "Google Sans", -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
   font-size: 11px;
   font-weight: 500;
   line-height: 1;
@@ -743,7 +743,7 @@ export const HUD_STYLES_CSS = `
   pointer-events: auto;
   user-select: text;
   -webkit-user-select: text;
-  font-family: "Google Sans Text", "Google Sans", -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", sans-serif;
+  font-family: "Google Sans Text", "Google Sans", -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
   color: var(--hud-text-primary);
   opacity: 0;
   transform: translateY(4px) scale(0.985);

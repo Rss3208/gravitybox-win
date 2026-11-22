@@ -218,7 +218,7 @@
     if (/^system-ui,|^ui-monospace,/.test(text) || /^translate[XY]\(/.test(text)) return false;
     if (/^(?:grid-rows-|opacity-|scale-|max-h-|max-w-|min-w-|h-|w-|p-|bg-|border)/.test(text) && /-|:/.test(text)) return false;
     if (/^EDITION_\d+_TEST_ONLY$/.test(text) || /^Optional(?:Double|Int)?\.empty\(\)$/.test(text)) return false;
-    if (/^(?:Alt|Ctrl|Cmd|Command|Option|Shift)\+[\w.]+$/i.test(text)) return false;
+    if (/^(?:Alt|Ctrl|Cmd|Command|Option|Shift|Win)(?:\+(?:Alt|Ctrl|Cmd|Command|Option|Shift|Win|[\w.]+|[.,/\[\]\-=]))+$/i.test(text)) return false;
     if (/^[a-z-]+(?::[a-z-]+)*\s+[a-z-]+/.test(text) && /-|:/.test(text)) return false;
     return true;
   }

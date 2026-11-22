@@ -455,10 +455,10 @@ class FakeShadowRoot {
 
 test('P0-01: 增量前缀复用克隆原始步骤，gen_metadata 原地刷新已入前缀的模型步时准确更新用量且不锁死或双计', async (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gb-hud-p001-'));
-  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
 
   const convId = '11111111-1111-4111-8111-111111111111';
   const { db, dbPath } = createWalDb(t, dir, convId);
+  t.after(() => { try { fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); } catch {} });
   const engine = new ConversationMetricsEngine({ conversationsDir: dir });
 
   db.prepare('INSERT INTO steps (idx, step_type, status, metadata) VALUES (0, 14, 3, ?)').run(
@@ -515,10 +515,10 @@ test('P0-01: 增量前缀复用克隆原始步骤，gen_metadata 原地刷新已
 
 test('P2-01: 超大步骤被增量前缀吸收的同时，首尾边缘字节变更会触发前缀失效并回退全量重扫', async (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gb-hud-p201-'));
-  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
 
   const convId = '22222222-2222-4222-8222-222222222222';
   const { db, dbPath } = createWalDb(t, dir, convId);
+  t.after(() => { try { fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); } catch {} });
 
   const buildOversizedBlob = (endSec) =>
     Buffer.from([
@@ -677,15 +677,13 @@ test('P2-05: CdpHudBridge 保留跨消息 autoHealAttempts 上限，隔离 ready
 
 test('P2-06: 混合子代理历史冷启动仍执行一次性反向嗅探，且父会话空闲时子代理 12s 保活立即释放', async (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gb-hud-p206-'));
-  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
-
   const mainId = 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa';
   const explicitChildId = 'bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb';
   const implicitChildId = 'cccccccc-3333-4333-8333-cccccccccccc';
-
   const { db: mainDb } = createWalDb(t, dir, mainId);
   const { db: childADb } = createWalDb(t, dir, explicitChildId, mainId);
   const { db: childBDb, dbPath: childBPath } = createWalDb(t, dir, implicitChildId, mainId);
+  t.after(() => { try { fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); } catch {} });
 
   mainDb.prepare('INSERT INTO steps (idx, step_type, status, metadata) VALUES (0, 14, 3, ?)').run(
     Buffer.from(seconds(1, 1000))
@@ -1330,7 +1328,6 @@ test('P1-04 & P2-04: AntigravityHudManager 隔离嵌套子分栏/工具卡/语�
 
 test('1.1.1 终审回归: conversation_summaries.db 10 子代理精确发现、分批 runningSubagentCount=1、subagents/tasks 合并态、reconcile 重绑 ResizeObserver、未定价前缀与 status=4 中止', async (t) => {
   const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gb-hud-111-batch2-'));
-  t.after(() => fs.rmSync(baseDir, { recursive: true, force: true }));
   const convDir = path.join(baseDir, 'conversations');
   fs.mkdirSync(convDir, { recursive: true });
 
@@ -1421,6 +1418,7 @@ test('1.1.1 终审回归: conversation_summaries.db 10 子代理精确发现、�
       : Buffer.from([...seconds(1, 2002 + i), ...seconds(7, 2005 + i), ...message(9, usageBytes({ rawInputTokens: 300, cachedReadTokens: 0, outputTokens: 30 }))]);
     cDb.prepare('INSERT INTO steps (idx, step_type, status, metadata) VALUES (0, 15, ?, ?)').run(st, meta);
   }
+  t.after(() => { try { fs.rmSync(baseDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); } catch {} });
 
   const engine = new ConversationMetricsEngine({ conversationsDir: convDir });
   const m = await engine.getConversationMetrics({
