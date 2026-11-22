@@ -1,0 +1,146 @@
+<UserControl x:Class="GravityBox.App.Views.Pages.OverviewPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:GravityBox.App.Controls">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel>
+            <!-- Page Header -->
+            <Grid Margin="0,0,0,14">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="总览" Style="{StaticResource PageTitleStyle}" />
+                <Button Grid.Column="1" Content="刷新" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding RefreshCommand}" />
+            </Grid>
+
+            <!-- Debug port missing banner -->
+            <Border Background="{DynamicResource WarningSoftBrush}"
+                    CornerRadius="12"
+                    Padding="14,10"
+                    Margin="0,0,0,12"
+                    Visibility="{Binding DebugPortMissing, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Antigravity 未开启调试端口，热汉化与对话状态栏暂未连接" Foreground="{DynamicResource WarningTextBrush}" VerticalAlignment="Center" />
+                    <Button Grid.Column="1" Content="安全重启以连接" Style="{StaticResource PrimaryButtonStyle}" Command="{Binding SafeRelaunchCommand}" />
+                </Grid>
+            </Border>
+
+            <!-- Seamless shortcut onboarding card -->
+            <Border Style="{StaticResource CardContainerStyle}"
+                    Margin="0,0,0,12"
+                    Visibility="{Binding ShowShortcutOnboardingCard, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="开启无感启动汉化" Style="{StaticResource CardTitleStyle}" />
+                        <TextBlock Text="{Binding UnconfiguredShortcutCountText}" Style="{StaticResource SecondaryLabelStyle}" Margin="0,4,0,0" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Content="暂不提醒" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,8,0" Command="{Binding DismissShortcutOnboardingCommand}" />
+                        <Button Content="一键开启" Style="{StaticResource PrimaryButtonStyle}" Command="{Binding ApplySeamlessShortcutsCommand}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Hero Account Card -->
+            <Border Style="{StaticResource CardContainerStyle}" Margin="0,0,0,12">
+                <StackPanel>
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="{Binding HeroAccountName}" Style="{StaticResource CardTitleStyle}" FontSize="16" />
+                            <TextBlock Text="{Binding HeroAccountEmail}" Style="{StaticResource SecondaryLabelStyle}" Margin="0,2,0,0" />
+                        </StackPanel>
+                        <Border Grid.Column="1" Style="{StaticResource PillBadgeStyle}">
+                            <TextBlock Text="{Binding HeroAccountTier}" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource AccentBlueBrush}" />
+                        </Border>
+                    </Grid>
+                    <ItemsControl ItemsSource="{Binding QuotaBars}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <controls:QuotaMeterRow Title="{Binding Title}"
+                                                        Percentage="{Binding Percentage}"
+                                                        RemainingText="{Binding RemainingText}"
+                                                        ResetText="{Binding ResetText}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <!-- Today 3 Metric Tiles -->
+            <Grid Margin="0,0,0,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Border Grid.Column="0" Style="{StaticResource CardContainerStyle}">
+                    <StackPanel>
+                        <TextBlock Text="今日 Token" Style="{StaticResource SecondaryLabelStyle}" />
+                        <TextBlock Text="{Binding TodayTokensText}" Style="{StaticResource TabularTextStyle}" FontSize="20" FontWeight="SemiBold" Margin="0,4,0,0" />
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="2" Style="{StaticResource CardContainerStyle}">
+                    <StackPanel>
+                        <TextBlock Text="今日请求" Style="{StaticResource SecondaryLabelStyle}" />
+                        <TextBlock Text="{Binding TodayRequestsText}" Style="{StaticResource TabularTextStyle}" FontSize="20" FontWeight="SemiBold" Margin="0,4,0,0" />
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="4" Style="{StaticResource CardContainerStyle}">
+                    <StackPanel>
+                        <TextBlock Text="等效费用" Style="{StaticResource SecondaryLabelStyle}" />
+                        <TextBlock Text="{Binding TodayCostText}" Style="{StaticResource TabularTextStyle}" FontSize="20" FontWeight="SemiBold" Margin="0,4,0,0" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- Bento 2-Column Dashboard -->
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="3*" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="2*" />
+                </Grid.ColumnDefinitions>
+                <Border Grid.Column="0" Style="{StaticResource CardContainerStyle}">
+                    <StackPanel>
+                        <TextBlock Text="24 小时消耗趋势" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,10" />
+                        <controls:UsageTrendChart Height="140" Points="{Binding TrendPoints}" />
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="2" Style="{StaticResource CardContainerStyle}">
+                    <StackPanel>
+                        <TextBlock Text="今日活跃模型" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,10" />
+                        <ItemsControl ItemsSource="{Binding ActiveModels}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{Binding ModelName}" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="1" Text="{Binding TokensText}" Style="{StaticResource TabularTextStyle}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
