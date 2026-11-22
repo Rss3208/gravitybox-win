@@ -3,9 +3,9 @@ import { lstat, readFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { basename, join } from 'node:path';
-import { homedir } from 'node:os';
 import { atomicJson, atomicText } from './files.js';
 import { bt, getActiveLocale } from './i18n.js';
+import { getPlatform } from './platform/index.js';
 import { createModelQueryMatcher, formatLocalDate, isUnpricedZeroSentinel, type LedgerSnapshot } from './usage-aggregate.js';
 import { UsageLedger, type LedgerEvent } from './usage-ledger.js';
 import {
@@ -154,8 +154,9 @@ export class UsageStatsManager {
   private activeUnpricedOfficialModels: string[] | null = null;
 
   constructor(options?: { geminiDir?: string; stateDir?: string; remotePricingUrl?: string; fallbackPricingUrls?: string[]; dataDirectoryName?: DataDirectoryName }) {
-    const defaultGeminiDir = join(homedir(), '.gemini');
-    const defaultStateDir = join(homedir(), 'Library', 'Application Support', 'GravityBox');
+    const platformPaths = getPlatform().getDefaultPaths();
+    const defaultGeminiDir = platformPaths.defaultGeminiDir;
+    const defaultStateDir = platformPaths.stateDir;
     this.geminiDir = options?.geminiDir ?? defaultGeminiDir;
     if (options?.dataDirectoryName && !ALLOWED_DATA_DIRECTORY_NAMES.includes(options.dataDirectoryName)) throw new Error(bt('usage.err.official_only'));
     this.dataDirectoryNames = options?.dataDirectoryName ? [options.dataDirectoryName] : ALLOWED_DATA_DIRECTORY_NAMES;
@@ -173,7 +174,7 @@ export class UsageStatsManager {
     this.autoRemotePricingSync = false;
     if (this.geminiDir === defaultGeminiDir && stateDir === defaultStateDir) {
       const cacheTag = options?.dataDirectoryName ?? 'antigravity';
-      this.persistCachePath = join(homedir(), 'Library', 'Caches', 'GravityBox', `usage-db-cache-${cacheTag}-v3.json`);
+      this.persistCachePath = join(platformPaths.cacheDir, `usage-db-cache-${cacheTag}-v3.json`);
     }
   }
 
@@ -420,11 +421,12 @@ export class UsageStatsManager {
     this.cachedSummariesByAccount.clear();
     this.lastAggregationKeysByAccount.clear();
     this.discoveredStats.clear();
-    const defaultGeminiDir = join(homedir(), '.gemini');
-    const defaultStateDir = join(homedir(), 'Library', 'Application Support', 'GravityBox');
+    const platformPaths = getPlatform().getDefaultPaths();
+    const defaultGeminiDir = platformPaths.defaultGeminiDir;
+    const defaultStateDir = platformPaths.stateDir;
     if (this.geminiDir === defaultGeminiDir && this.pricingCachePath === join(defaultStateDir, 'api_pricing.json')) {
       const cacheTag = name ?? 'antigravity';
-      this.persistCachePath = join(homedir(), 'Library', 'Caches', 'GravityBox', `usage-db-cache-${cacheTag}-v3.json`);
+      this.persistCachePath = join(platformPaths.cacheDir, `usage-db-cache-${cacheTag}-v3.json`);
       this.persistLoaded = false;
     }
   }

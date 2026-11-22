@@ -14,6 +14,7 @@ import {
 import { PRICING_METADATA } from './pricing.js';
 import { compareFeedFreshness } from './usage-pricing.js';
 import { bt, setActiveLocale } from './i18n.js';
+import { assertOwnedPathSyncForPlatform } from './platform/security.js';
 export function validLedgerEvent(event: unknown): event is LedgerEvent {
     if (!event || typeof event !== 'object')
         return false;
@@ -35,9 +36,12 @@ function compactUnitPrice(price: any) {
 }
 
 function regular(path: string) {
-    const stat = lstatSync(path);
-    if (!stat.isFile() || stat.isSymbolicLink() || stat.uid !== process.getuid?.())
-        throw Error(bt('ledger.err.file_identity_mismatch'));
+    assertOwnedPathSyncForPlatform(
+        process.platform === 'win32' ? 'win32' : 'darwin',
+        path,
+        'file',
+        bt('ledger.err.file_identity_mismatch')
+    );
 }
 interface LegacyBaselineCache {
     path: string;
@@ -254,9 +258,8 @@ function readValidatedLegacyEvents(legacyPath: string): LedgerEvent[] {
         if (cachedLegacyBaseline?.path === legacyPath) cachedLegacyBaseline = null;
         return [];
     }
+    regular(legacyPath);
     const stat = lstatSync(legacyPath);
-    if (!stat.isFile() || stat.isSymbolicLink() || stat.uid !== process.getuid?.())
-        throw Error(bt('ledger.err.file_identity_mismatch'));
     if (stat.size > 64 * 1024 * 1024)
         throw Error(bt('ledger.err.legacy_json_budget'));
     if (
@@ -795,7 +798,7 @@ function runRequest(payload: {
             db.exec('ROLLBACK');
             throw error;
         }
-        chmodSync(path, 0o600);
+        try { chmodSync(path, 0o600); } catch {}
         return { saved: events.length };
     }
     finally {

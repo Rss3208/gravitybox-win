@@ -30,7 +30,7 @@ export function writeRateLocksJsonMirror(db: DatabaseSync, ratesPath: string): v
     }
     const tmpRates = `${ratesPath}.${process.pid}.${randomUUID()}.tmp`;
     writeFileSync(tmpRates, JSON.stringify({ version: 1, profiles, entries }) + '\n', { mode: 0o600 });
-    chmodSync(tmpRates, 0o600);
+    try { chmodSync(tmpRates, 0o600); } catch {}
     renameSync(tmpRates, ratesPath);
 }
 export function revalueLedger(db: DatabaseSync, path: string, options: AggregateOptions & {
@@ -107,7 +107,7 @@ export function revalueLedger(db: DatabaseSync, path: string, options: Aggregate
         finally {
             baseline.close();
         }
-        chmodSync(backup, 0o600);
+        try { chmodSync(backup, 0o600); } catch {}
         const liveFileSet = options.liveFiles ? new Set(options.liveFiles) : null;
         const extraPriceKeys = Object.keys(options.prices);
         const candidateLocks = new Map(backupLocks);
@@ -177,7 +177,7 @@ export function revalueLedger(db: DatabaseSync, path: string, options: Aggregate
         finally {
             candidateDb.close();
         }
-        chmodSync(candidate, 0o600);
+        try { chmodSync(candidate, 0o600); } catch {}
         const changes: {
             key: string;
             before: number | null;

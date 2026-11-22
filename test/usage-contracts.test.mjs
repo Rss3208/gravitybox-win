@@ -83,7 +83,14 @@ test('今日统计与明细采用自然日半开边界，未来一日不能归�
 
 // Fixture state and hooks are scoped to this group; child cases run serially.
 describeContractGroup("用量与历史 · phase1-credibility", { concurrency: false }, async () => {
-const execFileAsync = promisify(execFile);
+const execFileAsync = async (_bin, [dbPath, sql]) => {
+  const db = new DatabaseSync(dbPath);
+  try {
+    db.exec(sql);
+  } finally {
+    db.close();
+  }
+};
 
 test('A03: 未知模型禁止套用默认价计费，统计未计价覆盖率', async () => {
   const sandbox = await mkdtemp(join(tmpdir(), 'gb-test-a03-'));
@@ -227,7 +234,14 @@ test('A05: 缺失时间戳保持为 0，不污染今日消耗与每小时分布'
 
 // Fixture state and hooks are scoped to this group; child cases run serially.
 describeContractGroup("用量与历史 · phase1-r-credibility", { concurrency: false }, async () => {
-const execFileAsync = promisify(execFile);
+const execFileAsync = async (_bin, [dbPath, sql]) => {
+  const db = new DatabaseSync(dbPath);
+  try {
+    db.exec(sql);
+  } finally {
+    db.close();
+  }
+};
 
 test('R08: by_model 返回显式 priced: boolean 并区分近零计价与未计价', async () => {
   const sandbox = await mkdtemp(join(tmpdir(), 'gb-r08-test-'));
@@ -410,7 +424,14 @@ test('明细固定快照分页，跨午夜摘要失效但既有导出快照可�
 
 // Fixture state and hooks are scoped to this group; child cases run serially.
 describeContractGroup("用量与历史 · v090-engines", { concurrency: false }, async () => {
-const execFileAsync = promisify(execFile);
+const execFileAsync = async (_bin, [dbPath, sql]) => {
+  const db = new DatabaseSync(dbPath);
+  try {
+    db.exec(sql);
+  } finally {
+    db.close();
+  }
+};
 
 // -------------------------------------------------------------
 // 2. UsageStatsManager 单元测试
