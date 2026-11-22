@@ -303,6 +303,22 @@ gravitybox/
 
 ---
 
+## Windows 10 / 11 Support (`x64`)
+
+GravityBox includes a native **.NET 8 WPF** desktop client (`native-win/`) with Win32/COM integration (`GravityBox.Win32` + `GravityBox.WinHelper.exe`), Named Pipe IPC (`ipc.token`), and out-of-the-box Simplified Chinese localization (`appLanguage = "zh-Hans"`):
+
+```powershell
+npm run build
+npm run test:win
+npm run test:win-native
+npm run verify:win -- --no-vendor
+npm run package:win
+```
+
+See [docs/sdd/acceptance-report-win.md](./docs/sdd/acceptance-report-win.md) for the Windows verification summary.
+
+---
+
 ## FAQ
 
 <details>

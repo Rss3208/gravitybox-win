@@ -303,6 +303,22 @@ gravitybox/
 
 ---
 
+## Windows 10 / 11 支持 (`x64`)
+
+GravityBox 提供原生 **.NET 8 WPF** 桌面客户端（`native-win/`），配合 `GravityBox.Win32` / `GravityBox.WinHelper.exe` 原生桥、Named Pipe (`ipc.token`) 隔离通信与开箱默认简体中文（`appLanguage = "zh-Hans"`）及无感快捷方式管理：
+
+```powershell
+npm run build
+npm run test:win
+npm run test:win-native
+npm run verify:win -- --no-vendor
+npm run package:win
+```
+
+Windows 移植验收摘要见 [docs/sdd/acceptance-report-win.md](./docs/sdd/acceptance-report-win.md)。
+
+---
+
 ## 常见问题
 
 <details>
