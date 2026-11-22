@@ -123,9 +123,9 @@ export class WinHelperClient implements WinHelperClientLike {
     return new Promise<T>((resolveReq, rejectReq) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);
+        this.syncChildRef();
         rejectReq(new Error(`WinHelper RPC timeout (${method}, ${timeoutMs}ms)`));
       }, timeoutMs);
-      timer.unref?.();
 
       this.pending.set(id, {
         resolve: resolveReq,
@@ -168,7 +168,6 @@ export class WinHelperClient implements WinHelperClientLike {
         } catch {}
         resolveClose();
       }, 800);
-      killTimer.unref?.();
 
       current.once('close', () => {
         clearTimeout(killTimer);

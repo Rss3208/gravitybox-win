@@ -249,6 +249,25 @@ public static class Program
                 return new { ok = true, shortcuts };
             }
 
+            case "shortcut_inspect":
+            {
+                string lnkPath = GetRequiredString(p, "path");
+                string loc = GetOptionalString(p, "location") ?? "custom";
+                var s = ShortcutManager.InspectShortcut(lnkPath, loc)
+                    ?? throw new FileNotFoundException("Shortcut file not found or invalid.");
+                return new
+                {
+                    ok = true,
+                    path = s.Path,
+                    location = s.Location,
+                    name = s.Name,
+                    targetPath = s.TargetPath,
+                    arguments = s.Arguments,
+                    workingDirectory = s.WorkingDirectory,
+                    hasDebugPort = s.HasDebugPort,
+                };
+            }
+
             case "shortcut_set_args":
             {
                 string lnkPath = GetRequiredString(p, "path");

@@ -38,6 +38,11 @@ import type {
   WinHelperClientLike,
 } from './types.js';
 import { getSharedWinHelperClient } from './win-helper-client.js';
+import {
+  scanShortcuts,
+  applyShortcutDebugPort as applyShortcutDebugPortService,
+  restoreShortcutDebugPort as restoreShortcutDebugPortService,
+} from './shortcuts.js';
 
 export class Win32CredentialAdapter implements KeychainAdapter {
   constructor(private getHelper: () => WinHelperClientLike | null) {}
@@ -367,143 +372,26 @@ export function createWin32PlatformAdapter(options: Win32PlatformOptions = {}): 
       return new Win32CredentialAdapter(getHelper);
     },
     async scanAntigravityShortcuts(officialExePath?: string, stateDir?: string): Promise<ShortcutEntry[]> {
-      const helper = getHelper();
-      if (!helper) return [];
-      const exePath = officialExePath || '';
-      const res = await helper.request<{ shortcuts: Array<Omit<ShortcutEntry, 'hasDebugPort' | 'hasBackup'> & { hasDebugPort?: boolean; hasBackup?: boolean }> }>(
-        'shortcut_scan',
-        { officialExePath: exePath },
-      ).catch(() => ({ shortcuts: [] }));
-      let backupPaths = new Set<string>();
-      if (stateDir) {
-        try {
-          const raw = JSON.parse(await readFile(join(stateDir, 'shortcut-backups.json'), 'utf8'));
-          if (Array.isArray(raw?.entries)) {
-            backupPaths = new Set(raw.entries.map((e: any) => String(e?.path || '').toLowerCase()).filter(Boolean));
-          }
-        } catch {}
-      }
-      const debugRe = /(?:^|\s)--remote-debugging-port(?:=\d+|\s+\d+)(?=\s|$)/i;
-      return (Array.isArray(res?.shortcuts) ? res.shortcuts : []).map(item => ({
-        path: item.path,
-        location: item.location ?? 'custom',
-        name: item.name ?? '',
-        targetPath: item.targetPath ?? exePath,
-        arguments: item.arguments ?? '',
-        ...(item.workingDirectory ? { workingDirectory: item.workingDirectory } : {}),
-        hasDebugPort: typeof item.hasDebugPort === 'boolean' ? item.hasDebugPort : debugRe.test(item.arguments || ''),
-        hasBackup: typeof item.hasBackup === 'boolean' ? item.hasBackup : backupPaths.has(String(item.path || '').toLowerCase()),
-      }));
+      return scanShortcuts({
+        helper: getHelper(),
+        officialExePath,
+        stateDir,
+      });
     },
     async applyShortcutDebugPort(paths: string[] | undefined, stateDir: string, officialExePath?: string): Promise<ShortcutApplyResult> {
-      const helper = getHelper();
-      if (!helper) return { updated: [], skipped: [], failed: [] };
-      const scanned = await this.scanAntigravityShortcuts!(officialExePath, stateDir);
-      const filterSet = Array.isArray(paths) && paths.length > 0
-        ? new Set(paths.map(p => resolve(p).toLowerCase()))
-        : null;
-      const targets = filterSet
-        ? scanned.filter(s => filterSet.has(resolve(s.path).toLowerCase()))
-        : scanned;
-      const backupFile = join(stateDir, 'shortcut-backups.json');
-      let backupDoc: { schema: number; updatedAt: string; entries: Array<Record<string, any>> } = {
-        schema: 1,
-        updatedAt: new Date().toISOString(),
-        entries: [],
-      };
-      try {
-        const parsed = JSON.parse(await readFile(backupFile, 'utf8'));
-        if (parsed && Array.isArray(parsed.entries)) backupDoc = parsed;
-      } catch {}
-
-      const updated: string[] = [];
-      const skipped: string[] = [];
-      const failed: Array<{ path: string; error: string }> = [];
-      const debugRe = /(?:^|\s)--remote-debugging-port(?:=\d+|\s+\d+)(?=\s|$)/i;
-
-      for (const item of targets) {
-        if (debugRe.test(item.arguments || '')) {
-          skipped.push(item.path);
-          continue;
-        }
-        const nextArgs = item.arguments?.trim()
-          ? `${item.arguments.trim()} --remote-debugging-port=0`
-          : '--remote-debugging-port=0';
-        const existingIdx = backupDoc.entries.findIndex(e => String(e.path || '').toLowerCase() === item.path.toLowerCase());
-        if (existingIdx < 0) {
-          backupDoc.entries.push({
-            path: item.path,
-            location: item.location,
-            targetPath: item.targetPath,
-            originalArguments: item.arguments || '',
-            appliedArguments: nextArgs,
-            appliedAt: new Date().toISOString(),
-          });
-        }
-        try {
-          backupDoc.updatedAt = new Date().toISOString();
-          await mkdir(stateDir, { recursive: true });
-          await writeFile(backupFile, JSON.stringify(backupDoc, null, 2) + '\n', 'utf8');
-          const res = await helper.request<{ ok: boolean }>('shortcut_set_args', { path: item.path, arguments: nextArgs });
-          if (res?.ok) updated.push(item.path);
-          else failed.push({ path: item.path, error: 'shortcut_set_args failed' });
-        } catch (err) {
-          failed.push({ path: item.path, error: sanitizeHostPaths((err as Error)?.message ?? String(err)) });
-        }
-      }
-      return { updated, skipped, failed };
+      return applyShortcutDebugPortService({
+        helper: getHelper(),
+        stateDir,
+        officialExePath,
+        paths,
+      });
     },
     async restoreShortcutDebugPort(stateDir: string, paths?: string[]): Promise<ShortcutRestoreResult> {
-      const helper = getHelper();
-      if (!helper) return { restored: [], skipped: [], failed: [] };
-      const backupFile = join(stateDir, 'shortcut-backups.json');
-      let backupDoc: { schema: number; updatedAt: string; entries: Array<Record<string, any>> } = {
-        schema: 1,
-        updatedAt: new Date().toISOString(),
-        entries: [],
-      };
-      try {
-        const parsed = JSON.parse(await readFile(backupFile, 'utf8'));
-        if (parsed && Array.isArray(parsed.entries)) backupDoc = parsed;
-      } catch {}
-
-      const filterSet = Array.isArray(paths) && paths.length > 0
-        ? new Set(paths.map(p => resolve(p).toLowerCase()))
-        : null;
-      const entriesToRestore = filterSet
-        ? backupDoc.entries.filter(e => filterSet.has(resolve(String(e.path || '')).toLowerCase()))
-        : [...backupDoc.entries];
-
-      const restored: string[] = [];
-      const skipped: string[] = [];
-      const failed: Array<{ path: string; error: string }> = [];
-      const restoredLower = new Set<string>();
-
-      for (const entry of entriesToRestore) {
-        const lnkPath = String(entry.path || '');
-        if (!lnkPath) continue;
-        try {
-          const res = await helper.request<{ ok: boolean }>('shortcut_set_args', {
-            path: lnkPath,
-            arguments: String(entry.originalArguments ?? ''),
-          });
-          if (res?.ok) {
-            restored.push(lnkPath);
-            restoredLower.add(lnkPath.toLowerCase());
-          } else {
-            failed.push({ path: lnkPath, error: 'shortcut_set_args failed' });
-          }
-        } catch (err) {
-          failed.push({ path: lnkPath, error: sanitizeHostPaths((err as Error)?.message ?? String(err)) });
-        }
-      }
-
-      if (restoredLower.size > 0) {
-        backupDoc.entries = backupDoc.entries.filter(e => !restoredLower.has(String(e.path || '').toLowerCase()));
-        backupDoc.updatedAt = new Date().toISOString();
-        await writeFile(backupFile, JSON.stringify(backupDoc, null, 2) + '\n', 'utf8').catch(() => {});
-      }
-      return { restored, skipped, failed };
+      return restoreShortcutDebugPortService({
+        helper: getHelper(),
+        stateDir,
+        paths,
+      });
     },
   };
 }
