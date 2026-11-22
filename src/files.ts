@@ -1,21 +1,58 @@
-import { open, lstat, unlink, mkdir, readFile } from 'node:fs/promises';
+import { open, unlink, mkdir, readFile } from 'node:fs/promises';
 import { renameSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { bt } from './i18n.js';
+import { getPlatform } from './platform/index.js';
 
 export interface AtomicWriteOptions {
   durability?: 'strict' | 'relaxed';
+}
+
+const SYNC_WAIT_BUFFER = new Int32Array(new SharedArrayBuffer(4));
+const TRANSIENT_RENAME_CODES = new Set(['EPERM', 'EBUSY', 'EACCES']);
+
+export function atomicRenameSyncWithRetry(
+  from: string,
+  to: string,
+  renameFn: (oldPath: string, newPath: string) => void = renameSync,
+  delaysMs: readonly number[] = [10, 20, 40, 80, 120]
+): void {
+  let attempt = 0;
+  for (;;) {
+    try {
+      renameFn(from, to);
+      return;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException)?.code ?? '';
+      if (attempt >= delaysMs.length || !TRANSIENT_RENAME_CODES.has(code)) {
+        throw error;
+      }
+      const delay = delaysMs[attempt] ?? 10;
+      attempt++;
+      try {
+        Atomics.wait(SYNC_WAIT_BUFFER, 0, 0, delay);
+      } catch {
+        // Fallback if Atomics.wait is disallowed on current thread
+      }
+    }
+  }
+}
+
+async function assertExistingOwnedRegularFile(filePath: string, errorKey: string): Promise<void> {
+  try {
+    await getPlatform().assertOwnedPath(filePath, 'file');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') return;
+    throw new Error(bt(errorKey));
+  }
 }
 
 /** Write completely before committing; cancellation and rename share one event-loop turn. */
 export async function atomicText(path: string, text: string, signal?: AbortSignal, options?: AtomicWriteOptions): Promise<void> {
   const strict = options?.durability !== 'relaxed';
   await mkdir(dirname(path), { recursive: true, mode: 0o700 });
-  try {
-    const info = await lstat(path);
-    if (!info.isFile() || info.isSymbolicLink() || info.uid !== process.getuid?.()) throw new Error(bt('files.refuse_non_user_file'));
-  } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+  await assertExistingOwnedRegularFile(path, 'files.refuse_non_user_file');
   const temp = `${path}.${randomUUID()}.tmp`;
   try {
     signal?.throwIfAborted();
@@ -26,7 +63,11 @@ export async function atomicText(path: string, text: string, signal?: AbortSigna
       if (strict) await handle.sync();
     } finally { await handle.close(); }
     signal?.throwIfAborted();
-    renameSync(temp, path);
+    if (process.platform === 'win32') {
+      atomicRenameSyncWithRetry(temp, path);
+    } else {
+      renameSync(temp, path);
+    }
     if (strict) {
       // Persist the directory entry as well, otherwise a power loss can roll the rename back.
       const dir = await open(dirname(path), 'r').catch(() => null);
@@ -57,8 +98,7 @@ export async function readOptionalJson<T = Record<string, unknown>>(path: string
 }
 
 function basenameForLog(filePath: string): string {
-  const idx = filePath.lastIndexOf('/');
-  return idx >= 0 ? filePath.slice(idx + 1) : filePath;
+  return basename(filePath.replace(/\\/g, '/'));
 }
 
 type FileChange = { path: string; before: string | null; after: string | null };
@@ -85,8 +125,7 @@ export async function recoverFileSet(journalPath: string, allowedPaths: string[]
 export async function commitFileSet(journalPath: string, values: { path: string; after: string | null }[]): Promise<void> {
   const changes: FileChange[] = [];
   for (const value of values) {
-    const info = await lstat(value.path).catch(error => { if (error.code !== 'ENOENT') throw error; return null; });
-    if (info && (!info.isFile() || info.isSymbolicLink() || info.uid !== process.getuid?.())) throw new Error(bt('files.delete_identity_mismatch'));
+    await assertExistingOwnedRegularFile(value.path, 'files.delete_identity_mismatch');
     changes.push({ ...value, before: await readOptional(value.path) });
   }
   await atomicJson(journalPath, { schema: 1, changes });
@@ -110,8 +149,26 @@ async function restoreCommit(record:AccountCommit, forward:boolean) {
 /** Called under the account write lease before reading the index. */
 export async function recoverAccountCommit(indexPath:string):Promise<void> {
   const journalPath=indexPath+'.commit.json',raw=await readOptional(journalPath);if(raw===null)return;
-  const record=JSON.parse(raw) as AccountCommit;
-  if(record.indexPath!==indexPath||dirname(record.accountPath)!==join(dirname(indexPath),'accounts')||!record.accountPath.endsWith('.json'))throw Error(bt('files.commit_journal_invalid'));
+  let record: AccountCommit;
+  try {
+    record=JSON.parse(raw) as AccountCommit;
+  } catch {
+    throw Error(bt('files.commit_journal_invalid'));
+  }
+  const accountsDir = join(dirname(indexPath), 'accounts');
+  const platform = getPlatform();
+  const sameDir = platform.id === 'win32'
+    ? dirname(record.accountPath ?? '').toLowerCase() === accountsDir.toLowerCase()
+    : dirname(record.accountPath ?? '') === accountsDir;
+  if (
+    record.indexPath !== indexPath ||
+    !record.accountPath ||
+    !platform.isStrictSubpath(accountsDir, record.accountPath) ||
+    !sameDir ||
+    !record.accountPath.toLowerCase().endsWith('.json')
+  ) {
+    throw Error(bt('files.commit_journal_invalid'));
+  }
   await restoreCommit(record,true);await unlink(journalPath);
 }
 /** Journal before either replacement; errors roll back, crashes are reconciled before reads. */
@@ -119,8 +176,7 @@ export async function commitAccountAndIndex(accountPath:string,accountData:unkno
   await mkdir(dirname(accountPath),{recursive:true,mode:0o700});
   await mkdir(dirname(indexPath),{recursive:true,mode:0o700});
   for(const target of [accountPath,indexPath]) {
-    try {const info=await lstat(target);if(!info.isFile()||info.isSymbolicLink()||info.uid!==process.getuid?.())throw Error(bt('files.refuse_non_user_file'));}
-    catch(error){if((error as NodeJS.ErrnoException).code!=='ENOENT')throw error;}
+    await assertExistingOwnedRegularFile(target, 'files.refuse_non_user_file');
   }
   const journalPath=indexPath+'.commit.json';
   const record:AccountCommit={accountPath,indexPath,beforeAccount:await readOptional(accountPath),beforeIndex:await readOptional(indexPath),afterAccount:JSON.stringify(accountData,null,2)+'\n',afterIndex:JSON.stringify(indexData,null,2)+'\n'};
@@ -132,7 +188,6 @@ export async function commitAccountAndIndex(accountPath:string,accountData:unkno
     throw error;
   }
 }
-
 
 const REDACTED_KEY = '[REDACTED_API_KEY]';
 const REDACTED_TOKEN = '[REDACTED_TOKEN]';
