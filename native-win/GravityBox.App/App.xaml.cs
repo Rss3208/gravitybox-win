@@ -43,6 +43,25 @@ public partial class App : System.Windows.Application
             catch { }
         };
 
+        int exportIdx = Array.FindIndex(e.Args, a => string.Equals(a, "--export-screenshots", StringComparison.OrdinalIgnoreCase));
+        if (exportIdx >= 0)
+        {
+            string outDir = exportIdx + 1 < e.Args.Length
+                ? e.Args[exportIdx + 1]
+                : Path.Combine(Environment.CurrentDirectory, "assets", "screenshots", "win");
+            try
+            {
+                await DemoScreenshotExporter.ExportAsync(this, outDir);
+                Shutdown(0);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[export-screenshots] {ex}");
+                Shutdown(1);
+            }
+            return;
+        }
+
         _singleInstanceMutex = new Mutex(initiallyOwned: true, @"Local\GravityBox-SingleInstance", out bool createdNew);
         if (!createdNew)
         {

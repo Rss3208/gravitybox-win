@@ -1,19 +1,20 @@
 <div align="center">
-  <a href="https://github.com/Enzoo404/gravitybox">
-    <img src="assets/master-1024.png" alt="GravityBox Logo" width="80" height="80" />
+  <a href="https://github.com/Rss3208/gravitybox-win">
+    <img src="assets/master-1024.png" alt="GravityBox for Windows Logo" width="80" height="80" />
   </a>
 
-  <h1>GravityBox</h1>
+  <h1>GravityBox for Windows</h1>
 
   <p>
-    <strong>面向 Apple Silicon Mac 的 Google Antigravity 原生增强伴侣</strong><br />
-    零改包双语适配 · 输入框 Telemetry HUD · 双周期配额账单 · 多账号安全切换 · 可撤回缓存瘦身
+    <strong>面向 Windows 10 / 11 的 Google Antigravity 原生增强伴侣（开箱默认中文汉化）</strong><br />
+    默认简体中文 · 无感快捷方式启动 · 输入框 Telemetry HUD · 双周期配额账单 · 多账号原子切号 · 可撤回缓存瘦身
   </p>
 
   <p>
-    <a href="https://github.com/Enzoo404/gravitybox/releases/latest"><img src="https://img.shields.io/github/v/release/Enzoo404/gravitybox?style=flat-square&color=2563EB" alt="Latest Release"></a>
-    <a href="https://github.com/Enzoo404/gravitybox/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Enzoo404/gravitybox/ci.yml?branch=main&style=flat-square&logo=github" alt="CI Status"></a>
-    <img src="https://img.shields.io/badge/macOS-14%2B%20%C2%B7%20Apple%20Silicon-111827?style=flat-square&logo=apple&logoColor=white" alt="macOS 14+ Apple Silicon">
+    <a href="https://github.com/Rss3208/gravitybox-win/releases/latest"><img src="https://img.shields.io/github/v/release/Rss3208/gravitybox-win?style=flat-square&color=2563EB" alt="Latest Release"></a>
+    <a href="https://github.com/Rss3208/gravitybox-win/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Rss3208/gravitybox-win/ci.yml?branch=main&style=flat-square&logo=github" alt="CI Status"></a>
+    <img src="https://img.shields.io/badge/Windows-10%20%2F%2011%20%C2%B7%20x64-0078D6?style=flat-square&logo=windows&logoColor=white" alt="Windows 10 / 11 x64">
+    <img src="https://img.shields.io/badge/.NET%208-WPF%20Native-512BD4?style=flat-square&logo=dotnet&logoColor=white" alt=".NET 8 WPF">
     <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-10B981?style=flat-square" alt="MIT License"></a>
   </p>
 
@@ -22,62 +23,82 @@
   </p>
 
   <p>
-    <a href="#概览">概览</a> ·
+    <a href="#概览与特色">概览与特色</a> ·
     <a href="#快速上手">快速上手</a> ·
+    <a href="#零改包默认中文汉化">默认中文汉化</a> ·
     <a href="#对话状态栏-hud">对话状态栏 HUD</a> ·
-    <a href="#界面与核心机制">界面与机制</a> ·
-    <a href="#安装与升级">安装与升级</a> ·
+    <a href="#windows-原生控制台预览">界面预览</a> ·
+    <a href="#安装升级与校验">安装与校验</a> ·
     <a href="#安全与隐私边界">安全边界</a> ·
-    <a href="#架构与源码构建">源码构建</a>
+    <a href="#架构与源码构建">源码构建</a> ·
+    <a href="#上游致谢与开源协议">协议与致谢</a>
   </p>
 </div>
 
 <br />
 
+> **开源致谢与说明**：本项目是基于优秀开源项目 [`Enzoo404/gravitybox`](https://github.com/Enzoo404/gravitybox)（MIT License）移植并增强的 **Windows 10 / 11 原生版本**。完整保留上游 MIT 许可证与提交历史，并在 Windows 端全新构建了 `.NET 8 WPF` 原生桌面客户端、`GravityBox.Win32` / `WinHelper` 原生桥、开箱默认简体中文汉化、无感 `.lnk` 快捷方式启动与 DPAPI 凭据隔离。macOS 用户推荐直接使用上游原版 [`Enzoo404/gravitybox`](https://github.com/Enzoo404/gravitybox)。
+
 <div align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/hero-dark.png" />
-    <img src="assets/screenshots/hero.png" alt="GravityBox 主控制台与常驻菜单栏浮窗" width="100%" />
+    <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/win/win-hero-dark.png" />
+    <img src="assets/screenshots/win/win-hero.png" alt="GravityBox for Windows 原生主控制台与系统托盘浮窗" width="100%" />
   </picture>
-  <sub><em>Swift 6 / AppKit 原生主控制台与菜单栏浮窗（跟随系统浅色与深色模式自动切换）</em></sub>
+  <sub><em>.NET 8 / WPF 原生主控制台与多屏 DPI 自适应系统托盘浮窗（跟随 Windows 浅色与深色主题自动切换）</em></sub>
 </div>
 
 ---
 
-## 概览
+## 概览与特色
 
-**GravityBox**（`GravityBox v1.1.3`）专为官方正式版 `/Applications/Antigravity.app` 设计，内置独立 Node 22 运行时，通过本机回环 CDP 与只读 SQLite 事务工作，不解包、不篡改、不重签名官方应用包。
+**GravityBox for Windows**（`GravityBox v1.1.3`）专为 Windows 10 / 11 (`x64`) 官方正式版 `Antigravity.exe` 设计。安装包内置自包含 `.NET 8` 与 `Node 22` 运行环境，无需预先安装任何依赖；通过本机回环 CDP、当前用户 SID 级 Named Pipe 与只读 SQLite 事务运行，**不解包、不篡改、不重签名官方应用文件**。
 
 | 核心能力 | 解决什么问题 |
 | :--- | :--- |
-| **零改包双语适配** | 运行时动态切换简体中文与英文界面（词典指纹已覆盖 `2.23.0`–`2.33.0`，`2.34.0+` 自动进入自适应兼容模式），同时保护对话内容、代码块与终端输出不被改动。 |
-| **对话状态栏 (HUD)** | 在每个聊天输入框正下方嵌入三联遥测条，实时展示轮次用时、输出速度、Token 消耗、缓存命中率、压缩次数与上下文水位。 |
-| **双周期配额与账单** | 将 **5 小时** 滚动限额、**每周** 限额与独立高阶池（如 `Gemini 4 Argon`）拆开展示；汇总页自动合并同一模型的各思考档位变体（`-low` 至 `-max`），并按时序官方单价核算等效 API 费用。 |
-| **多账号与 CLI 同步** | 支持保存当前会话、JSON 批量导入与 `0600` 导出备份、低配额智能推荐、同源 `agy` CLI 凭据非侵入同步，以及四阶段原子安全切换与异常自动回滚。 |
-| **可撤回缓存瘦身** | 仅清理无状态运行缓存与可选超期后台日志（清理前归档账单），统一移入系统废纸篓并支持一键原位还原，登录凭据与聊天正文受白名单隔离保护。 |
+| **开箱默认简体中文** | 首次启动即默认启用 `zh-Hans` 中文界面与 Antigravity 零改包动态汉化（覆盖 `2.23.0`–`2.34.0+`），支持随时一键切换 **简体中文 / 跟随系统 / English**，且严格保护对话正文、代码块与终端输出。 |
+| **无感启动快捷方式** | 内置 `GravityBox.WinHelper.exe` 与快捷方式引导，支持一键为桌面/开始菜单的 Antigravity `.lnk` 快捷方式附加安全调试参数（自动备份原快捷方式，支持随时一键或卸载时自动无损还原）。配置后双击原图标即可自动汉化与加载 HUD。 |
+| **对话状态栏 (HUD)** | 在每个聊天输入框下方嵌入三联遥测条，实时展示轮次用时、TTFT / TPS、Token 消耗、缓存命中率、压缩次数与上下文水位（支持中英双语独立开关）。 |
+| **双周期配额与账单** | 将 **5 小时** 滚动限额、**每周** 限额与独立高阶池（如 `Gemini 4 Argon`）拆开展示；汇总页自动合并同一模型的思考档位变体（`-low` 至 `-max`），并按时序官方单价核算等效 API 费用与支持 CSV 导出。 |
+| **多账号安全切换** | 支持一键保存当前账号、JSON 批量导入与安全导出、低配额备用智能推荐、同源 `agy` CLI 凭据非侵入同步，以及四阶段原子安全切换、7 天恢复点回滚与 Windows DPAPI 凭据加密。 |
+| **可撤回缓存瘦身** | 按「运行缓存 / 历史日志 / 已保护核心资产」三类可视化扫描存储空间，清理统一移入 Windows 回收站并支持一键原位还原，登录凭据与聊天正文受白名单严格隔离保护。 |
 
 ---
 
 ## 快速上手
 
-1. **下载与安装**：前往 [GitHub Releases](https://github.com/Enzoo404/gravitybox/releases/latest) 获取最新 `GravityBox-<version>-arm64.dmg`，将 **GravityBox.app** 拖入 **Applications**。因开源版本未经过 Apple 付费公证，首次运行前在终端执行一次放行命令即可（也可在「系统设置 → 隐私与安全性」点击仍要打开）：
-   ```bash
-   xattr -cr /Applications/GravityBox.app
-   ```
-2. **启动并连接**：打开 **GravityBox**，通过侧栏或菜单栏点击 **「打开 Antigravity」**。若 `2.33.0+` 客户端是从外部直接启动且未开启调试端口，面板会弹出「未开启调试端口」横幅，点击 **「安全重启以连接」** 即可直接优雅重启并挂载（不在后台强杀进程）。
-3. **日常协作**：写代码时直接看输入框下方 **HUD**；查额度/快速切号直接唤起 **菜单栏浮窗**（支持 `⌘1/2/3` 快捷键与全屏跨空间展示）；深度分析与整理打开 **主控制台**（总览 · 账号 · 用量 · 设置 · 关于）。
+1. **下载与安装**：前往 [GitHub Releases](https://github.com/Rss3208/gravitybox-win/releases/latest) 下载任一版本：
+   - **安装版（推荐）**：`GravityBox-1.1.3-win-x64-setup.exe`（每用户免管理员权限安装，自动创建开始菜单图标，卸载时自动无损还原 Antigravity 快捷方式）。
+   - **便携版（免安装）**：`GravityBox-1.1.3-win-x64-portable.zip`（解压后直接运行 `GravityBox.exe`）。
+   > **关于 Windows SmartScreen 提示**：开源社区版本未使用付费商业代码签名证书。若首次运行弹出「Windows 已保护你的电脑」，点击 **「更多信息 → 仍要运行」** 即可（也可先核对下方 `.sha256` 校验和或自行从源码构建）。
+2. **启动并连接（默认中文生效）**：打开 **GravityBox** 后已默认启用简体中文。点击总览页 **「一键开启」** 无感启动快捷方式，或直接点击侧栏 **「打开 Antigravity」**。若 Antigravity 已在外部启动但未带调试端口，点击横幅 **「安全重启以连接」** 即可优雅重启挂载。
+3. **三端协作**：写代码时看输入框下方 **HUD**；查额度与快速切号点击右下角 **系统托盘浮窗**（支持 `Ctrl+1/2/3`）；深度账单分析、多账号管理与快捷方式维护使用 **WPF 主控制台**（`Ctrl+1`–`5`）。
+
+---
+
+## 零改包默认中文汉化
+
+安装并启动 GravityBox 后即**默认开启简体中文**（无需手动配置，随时可在设置中一键切回 `English` 或 `跟随系统`）。所有翻译均通过本机回环 CDP 在独立隔离世界动态注入，**绝不修改 `Antigravity.exe` 或 `app.asar`**，同时通过语义白名单严格隔离代码块、对话正文、输入框草稿与终端输出：
+
+<div align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/win/win-i18n-compare-dark.png" />
+    <img src="assets/screenshots/win/win-i18n-compare.png" alt="Antigravity 原版英文与接入 GravityBox 零改包默认中文汉化及 HUD 实时对比" width="100%" />
+  </picture>
+  <sub><em>实机引擎注入对比：左侧原版英文 IDE → 右侧经 GravityBox 零改包实时汉化 + 底部 HUD 挂载（代码片段受白名单隔离保护）</em></sub>
+</div>
 
 ---
 
 ## 对话状态栏 (HUD)
 
-HUD 挂载于每个 Antigravity 对话输入框下方，支持分栏独立状态且不抢占输入焦点。
+HUD 挂载于每个 Antigravity 对话输入框下方，支持分栏独立状态且不抢占输入焦点；悬停或点击胶囊即可向上展开 **对话统计**、**Token 用量** 与 **当前上下文** 实时卡片：
 
 <div align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/hud-dark.png" />
-    <img src="assets/screenshots/hud.png" alt="IDE 对话状态栏与向上展开卡片" width="94%" />
+    <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/win/win-i18n-hud-dark.png" />
+    <img src="assets/screenshots/win/win-i18n-hud.png" alt="Windows Antigravity 中文界面与对话统计 HUD 展开实景" width="96%" />
   </picture>
+  <sub><em>Windows Antigravity 中文界面 + 输入框底部三联 HUD 与「对话统计」展开面板（实时展示模型/工具耗时、TTFT、TPS 与子智能体步数）</em></sub>
 </div>
 
 <br />
@@ -93,7 +114,7 @@ HUD 挂载于每个 Antigravity 对话输入框下方，支持分栏独立状态
 | :--- | :--- | :--- |
 | **1. 对话与速度** | 灰 / 实心蓝 / 呼吸蓝圆点 + `3 轮 · 本轮 18s · 90 tok/s · 2` | 状态灯指示当前前台活动（**灰** 空闲或仅后台子智能体运行，**实心蓝** 模型思考/输出，**呼吸蓝** 工具调用）；右侧依次为轮次、当前轮用时、平均吐字速度及并行子智能体数量。 |
 | **2. Token 与缓存** | `58.6M tok · 缓存命中 97%` | 本会话（含关联子智能体）累计消耗总 Token 及输入缓存复用比例。 |
-| **3. 上下文水位** | 压缩徽章 (`1` / `2` / `3+`) + 模型短标 + 进度条 (`66%`) | 发生自动压缩后才显现对应颜色角标；多模型或编排场景显示当前模型简称；未返回精确容量时带 `~` 按参考上限估算。 |
+| **3. 上下文水位** | 压缩徽章 (`1` / `2` / `3+`) + 模型短标 + 进度条 (`66%`) | 发生自动压缩后显现对应颜色角标；多模型或编排场景显示当前模型简称；未返回精确容量时带 `~` 按参考上限估算。 |
 
 ### 向上展开详情卡片
 
@@ -125,126 +146,98 @@ HUD 挂载于每个 Antigravity 对话输入框下方，支持分栏独立状态
   </tr>
 </table>
 
-<details>
-<summary>卡片指标补充与 v1.1.3 上下文卡片变更</summary>
-
-- **对话统计**：拆分模型与工具累计耗时（自动合并并行工具重叠时间），展示全局平均与最近一步的 TTFT / TPS，以及子智能体运行步数。
-- **Token 用量**：细分为未缓存输入、缓存读取、缓存写入与输出（模型支持时自动拆分 `思维链 / 回复`），并按当时生效费率折算等效 API 费用与缓存节省金额（含未公开定价模型时显示 `≥ $X`）。
-- **当前上下文（`v1.1.3`）**：单行标题融合当前模型名与角色徽章（`规划` / `执行`），以统一原生磨砂中性灰胶囊在 **曾用模型上下文** 列表展示切换过的模型水位与压缩次数。
-
-</details>
-
 ---
 
-## 界面与核心机制
+## Windows 原生控制台预览
+
+所有界面截图均由 Windows WPF 原生客户端在浅色与深色模式下使用脱敏合成测试数据（`@example.invalid` / `C:\Users\demo\...`）于 2× 高清 DPI 渲染导出：
 
 <table>
   <tr>
     <td width="50%" align="center">
-      <b>总览</b><br /><br />
+      <b>总览（无感快捷方式引导 · 双周期配额 · 24h 曲线）</b><br /><br />
       <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/dark-overview.png" />
-        <img src="assets/screenshots/overview.png" alt="GravityBox 总览看板" width="100%" />
+        <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/win/win-overview-dark.png" />
+        <img src="assets/screenshots/win/win-overview.png" alt="GravityBox for Windows 总览页" width="100%" />
       </picture>
     </td>
     <td width="50%" align="center">
-      <b>账号</b><br /><br />
+      <b>账号管理（多账号池 · 备用智能推荐 · 原子切换）</b><br /><br />
       <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/dark-accounts.png" />
-        <img src="assets/screenshots/accounts.png" alt="GravityBox 账号管理" width="100%" />
+        <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/win/win-accounts-dark.png" />
+        <img src="assets/screenshots/win/win-accounts.png" alt="GravityBox for Windows 账号管理页" width="100%" />
       </picture>
     </td>
   </tr>
   <tr>
     <td width="50%" align="center">
-      <b>用量与费用</b><br /><br />
+      <b>用量与费用（Token 曲线 · 环形图 · 缓存命中 · CSV 导出）</b><br /><br />
       <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/dark-usage.png" />
-        <img src="assets/screenshots/usage.png" alt="GravityBox 用量明细" width="100%" />
+        <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/win/win-usage-dark.png" />
+        <img src="assets/screenshots/win/win-usage.png" alt="GravityBox for Windows 用量与费用页" width="100%" />
       </picture>
     </td>
     <td width="50%" align="center">
-      <b>设置</b><br /><br />
+      <b>设置（默认简体中文 · 快捷方式管理 · 存储瘦身）</b><br /><br />
       <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/dark-settings.png" />
-        <img src="assets/screenshots/settings.png" alt="GravityBox 偏好设置" width="100%" />
+        <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/win/win-settings-dark.png" />
+        <img src="assets/screenshots/win/win-settings.png" alt="GravityBox for Windows 设置页" width="100%" />
       </picture>
     </td>
   </tr>
 </table>
 
 <details>
-<summary>展开更多截图：常驻菜单栏浮窗、存储与维护、关于页面</summary>
+<summary>展开更多截图：系统托盘浮窗、关于与自更新页</summary>
 <br />
 <table>
   <tr>
-    <td width="33.3%" align="center">
-      <b>菜单栏 · 用量</b><br /><br />
+    <td width="38%" align="center">
+      <b>系统托盘悬浮窗</b><br /><br />
       <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/dark-menubar.png" />
-        <img src="assets/screenshots/menubar.png" alt="菜单栏用量浮窗" width="100%" />
+        <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/win/win-tray-dark.png" />
+        <img src="assets/screenshots/win/win-tray.png" alt="GravityBox for Windows 系统托盘悬浮窗" width="100%" />
       </picture>
     </td>
-    <td width="33.3%" align="center">
-      <b>菜单栏 · 配额</b><br /><br />
+    <td width="62%" align="center">
+      <b>关于、自更新与 MIT 开源声明</b><br /><br />
       <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/dark-menubar-quota.png" />
-        <img src="assets/screenshots/menubar-quota.png" alt="菜单栏配额浮窗" width="100%" />
-      </picture>
-    </td>
-    <td width="33.3%" align="center">
-      <b>菜单栏 · 账号</b><br /><br />
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/dark-menubar-accounts.png" />
-        <img src="assets/screenshots/menubar-accounts.png" alt="菜单栏账号浮窗" width="100%" />
-      </picture>
-    </td>
-  </tr>
-  <tr>
-    <td colspan="2" align="center">
-      <b>存储与维护（废纸篓清理与原位还原）</b><br /><br />
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/dark-maintenance.png" />
-        <img src="assets/screenshots/maintenance.png" alt="存储与维护弹窗" width="90%" />
-      </picture>
-    </td>
-    <td align="center">
-      <b>关于与更新</b><br /><br />
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/dark-about.png" />
-        <img src="assets/screenshots/about.png" alt="关于与更新" width="100%" />
+        <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/win/win-about-dark.png" />
+        <img src="assets/screenshots/win/win-about.png" alt="GravityBox for Windows 关于页" width="100%" />
       </picture>
     </td>
   </tr>
 </table>
 </details>
 
-### v1.1.3 核心机制说明
-
-- **Antigravity `2.34.0+` 备用账号配额追踪**：当前正在使用的账号通过进程环境变量读取，无需额外配置即可持续实时刷新。受 `2.34.0` 本地通道仅限单一活跃钥匙串会话、以及 GravityBox 坚持纯本地开源（不内置官方客户端密钥、不设中转服务器）的限制，未激活的备用账号离开约 1 小时登录态过期后不再后台拉取云端额度；GravityBox 会在过期前自动补刷、超时后静默跳过不弹窗报错、保留上次快照并按重置时间标示 **「预计已重置」** 供智能推荐参考，待手动切回该账号时同步最新余额。
-- **JSON 批量管理与 `agy` CLI 同步**：在账号页头部 **「管理账号…」** 中集成了保存当前账号、JSON 文件/目录批量导入（按邮箱去重）与二次确认 `0600` 备份导出；切号与撤销回滚时会顺带更新本机已存在的 `antigravity-oauth-token` 与 `jetski-standalone-oauth-token`，不干扰 `@google/gemini-cli` 凭据。
-- **思考档位折叠与价格表热更新**：主界面与菜单栏自动将同一基础模型的 `-low`、`-medium`、`-high`、`-xhigh`、`-thinking`、`-max`、`-tiered` 等变体合并展示汇总消耗（请求明细流水保留原始标识）；开启 **「自动更新价格基准」** 或点击 **「立即检查」** 可在线热同步最新公开模型单价表。
-- **独立双语与 HUD 开关**：在设置页或菜单栏 `···` 菜单随时切换 **跟随系统 / 简体中文 / English**，无需重启；选择 `English` 恢复官方英文界面时，仍可保持英文版 HUD 正常工作。
-
 ---
 
-## 安装与升级
+## 安装、升级与校验
 
-- **运行环境**：macOS 14 (Sonoma) 或 macOS 15+ (Sequoia)、Apple Silicon (`arm64`)、官方正式版 `/Applications/Antigravity.app`（不支持也不干扰 Insiders 预览版），安装包内置运行环境、零外部依赖。
-- **SHA-256 校验（可选）**：
-  ```bash
-  shasum -a 256 -c GravityBox-<version>-arm64.dmg.sha256
+- **运行环境**：Windows 10 (1903+) 或 Windows 11 (`x64`)、官方正式版 Antigravity（通常位于 `%LOCALAPPDATA%\Programs\Antigravity\Antigravity.exe`）。安装包已内置自包含 `.NET 8` 与 `Node 22` 运行时，**无需预先安装 .NET 或 Node.js**。
+- **PowerShell SHA-256 校验（推荐）**：
+  ```powershell
+  # 校验安装版
+  Get-FileHash .\GravityBox-1.1.3-win-x64-setup.exe -Algorithm SHA256
+  Get-Content .\GravityBox-1.1.3-win-x64-setup.exe.sha256
+
+  # 或校验便携版
+  Get-FileHash .\GravityBox-1.1.3-win-x64-portable.zip -Algorithm SHA256
+  Get-Content .\GravityBox-1.1.3-win-x64-portable.zip.sha256
   ```
-- **覆盖无损升级**：退出旧版 GravityBox 后将新版拖入 `/Applications` 替换，或在 **关于** 页检查更新（默认关闭后台检查）。账号库、历史账单、个人词典与恢复点均独立保存在 `~/Library/Application Support/GravityBox`。
+- **无损升级与自更新**：
+  - 所有配置、账号库、用量总账、快捷方式备份与恢复点均保存在 `%LOCALAPPDATA%\GravityBox`。
+  - 直接运行新版安装程序覆盖安装，或在 **「关于」** 页点击 **「检查更新」**（默认关闭后台检查；更新源指向 [`Rss3208/gravitybox-win`](https://github.com/Rss3208/gravitybox-win/releases) 并强制校验 `.sha256` 侧车文件）。
+- **干净卸载**：通过 Windows「设置 → 应用」卸载安装版时会自动执行 `GravityBox.WinHelper.exe --restore-shortcuts` 无损恢复原 Antigravity 快捷方式；如需清空所有本地数据，删除 `%LOCALAPPDATA%\GravityBox` 即可。
 
 <details>
 <summary>进阶可选：为过期备用账号配置后台云端刷新凭据</summary>
 
-日常使用（多账号切号、当前账号实时配额、HUD 状态栏、用量账单与汉化）无需此配置。仅当需要未激活备用账号在过期后继续自动拉取云端配额时，才需在 `~/Library/Application Support/GravityBox/.env` 中写入兼容的 OAuth 客户端凭据：
+日常使用（多账号切号、当前账号实时配额、HUD 状态栏、用量账单与汉化）**无需此配置**。仅当需要未激活备用账号在登录态过期后继续后台拉取云端配额时，可在 `%LOCALAPPDATA%\GravityBox\.env` 中写入兼容的 OAuth 客户端凭据：
 
-```bash
-GRAVITYBOX_GOOGLE_CLIENT_ID="your-client-id.apps.googleusercontent.com"
-GRAVITYBOX_GOOGLE_CLIENT_SECRET="your-client-secret"
+```ini
+GRAVITYBOX_GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+GRAVITYBOX_GOOGLE_CLIENT_SECRET=your-client-secret
 ```
 
 </details>
@@ -253,12 +246,13 @@ GRAVITYBOX_GOOGLE_CLIENT_SECRET="your-client-secret"
 
 ## 安全与隐私边界
 
-| 安全原则 | 工程实现 |
+| 安全原则 | Windows 工程实现 |
 | :--- | :--- |
-| **零遥测零上报** | 无第三方统计或崩溃上报 SDK，无后台静默外联请求；更新检查与价格同步默认均关闭。 |
-| **不改动官方包** | 仅通过本机回环（`127.0.0.1`）CDP 隔离世界运行，不解包、不改写、不重签名 `/Applications/Antigravity.app`。 |
-| **用户内容隔离** | 输入框草稿、对话正文、代码块、终端输出、文件名与项目名由 DOM 选择器与白名单严格隔离。 |
-| **纯本地权限存储** | 所有账号元信息、钥匙串索引、SQLite 账本与快照均保留于 `~/Library/Application Support/GravityBox`（`0700`/`0600`）。 |
+| **零遥测零上报** | 无第三方统计或崩溃上报 SDK，无静默外联请求；更新检查与远端价格同步默认均关闭。 |
+| **不改动官方二进制** | 仅通过本机回环（`127.0.0.1`）CDP 隔离世界运行，绝不修改 `Antigravity.exe` 或 `resources/app.asar`。 |
+| **DPAPI 凭据与 SID 隔离** | 本地账号凭据经 Windows **DPAPI (`DataProtectionScope.CurrentUser`)** 加密保护；前后端 IPC 使用绑定当前用户 SID 与 `ipc.token` 的 Named Pipe。 |
+| **用户内容隔离与防误删** | 输入框草稿、对话正文、代码块、终端输出受 DOM 白名单保护；缓存清理统一走 Windows 回收站与 7 天恢复点，严禁硬删除核心数据。 |
+| **自动化隐私与版权门禁** | 仓库内置 `tools/check-privacy.mjs` 与 `vendor/` 隔离门禁，不含任何官方二进制或真实用户数据。 |
 
 ---
 
@@ -266,56 +260,47 @@ GRAVITYBOX_GOOGLE_CLIENT_SECRET="your-client-secret"
 
 ```mermaid
 flowchart LR
-  UI["原生前端 (Swift 6 / AppKit)<br/>主控制台 · 菜单栏独立浮窗 · 自更新器"] <-->|"Unix Domain Socket IPC"| Core["核心引擎 (Node 22 / TypeScript)<br/>四阶段切号 · 只读 SQLite 账本 · 配额融合"]
-  Core -->|"本机回环 CDP (零改包)"| IDE["/Applications/Antigravity.app<br/>界面热汉化 · 对话状态栏 HUD"]
-  Core -->|"只读快照 + 废纸篓还原"| Local["~/Library/Application Support/GravityBox<br/>账号配置 · 用量总账 · 个人词典 · 恢复点"]
+  UI["Windows 原生前端 (.NET 8 / WPF)<br/>5 页主控制台 · 系统托盘浮窗 · 自更新器"] <-->|"Named Pipe IPC (User SID + Token)"| Core["核心引擎 (Node 22 / TypeScript)<br/>平台抽象层 PAL · 四阶段切号 · SQLite 账本"]
+  UI -->|"COM / Win32 互操作"| Helper["GravityBox.WinHelper.exe<br/>无感快捷方式管理 · DPAPI · 卸载还原"]
+  Core -->|"本机回环 CDP (零改包)"| IDE["Antigravity.exe<br/>默认中文热汉化 · 对话状态栏 HUD"]
+  Core -->|"只读快照 + 回收站还原"| Local["%LOCALAPPDATA%\GravityBox<br/>账号库 · 用量总账 · 快捷方式备份 · 恢复点"]
 ```
 
-源码构建需本机安装 Xcode Command Line Tools 与 Node.js `>=22.15.0 <23`：
+### Windows 本地构建与打包
 
-```bash
-git clone https://github.com/Enzoo404/gravitybox.git
-cd gravitybox
+需安装 **Node.js `>=22.15.0 <23`** 与 **.NET 8 SDK**（如需构建 `setup.exe`，再安装 **Inno Setup 6**）：
+
+```powershell
+git clone https://github.com/Rss3208/gravitybox-win.git
+cd gravitybox-win
 npm ci
 
-npm test                # 编译 TS、校验价格资产并运行单元/集成测试
-npm run check:swift     # Swift 6 AppKit 编译与布局检查
-npm run verify          # 全量发布门禁（TS + 单测 + 无头浏览器 E2E + Swift -O + 词典门禁）
-npm run package:mac     # 构建 Apple Silicon .app 与 .dmg 安装包
+npm run build                    # 编译 TypeScript 后端与运行时脚本
+npm run test:win                 # 运行 Windows 后端单元测试与平台契约测试
+npm run test:win-native          # 运行 .NET 8 WPF / Win32 xUnit 测试套件
+npm run check:privacy            # 运行隐私与路径泄露门禁
+node tools/check-docs.mjs --source-only
+npm run package:win              # 构建自包含便携 ZIP 与 Inno Setup setup.exe + .sha256
 ```
 
 <details>
 <summary>仓库目录结构</summary>
 
 ```text
-gravitybox/
-├── native/       # Swift 6 / AppKit 主控制台、MenuFloatingPanel、双语运行时与更新器
-├── src/          # TypeScript 核心引擎（IPC、双语控制、四阶段切号、配额融合、SQLite 账本、HUD）
-├── runtime/      # CDP 注入脚本（DOM 增量翻译、保护守卫与双语 Telemetry HUD）
-├── dict/         # 分层词典与本地覆盖配置
-├── ui-strings/   # 各受支持正式版官方界面文案快照（2.23.0 – 2.33.0）
-├── assets/       # 图标、i18n 语言包、模型目录、时序价格表与 Retina 实机截图
-├── test/         # 单元/集成、无头 Chromium 浏览器回归及原生 Swift UI 测试套件
-└── tools/        # 发布完整性校验、隐私扫描、文档检查、截图生成与 macOS 打包脚本
+gravitybox-win/
+├── native-win/   # Windows .NET 8 解决方案（WPF 主应用、Win32 桥、WinHelper、xUnit 测试）
+├── native/       # 上游 macOS Swift 6 / AppKit 前端（保留跨平台兼容）
+├── src/          # Node 22 / TypeScript 核心引擎（含 src/platform/ 跨平台抽象层 PAL）
+├── runtime/      # CDP 注入脚本（DOM 增量翻译引擎、保护守卫与双语 Telemetry HUD）
+├── dict/         # 分层中文词典与本地覆盖配置
+├── ui-strings/   # 各受支持正式版官方界面文案快照（2.23.0 – 2.34.0）
+├── assets/       # 图标、i18n 语言包、模型目录、时序价格表与高 DPI 截图
+├── docs/sdd/     # Windows 移植 Spec-Driven Development 需求/设计/执行与验收文档
+├── test/         # Node 单元/集成测试、Windows 契约测试与无头浏览器 E2E 回归
+└── tools/        # 构建、Windows 打包（tools/win/）、隐私扫描与文档一致性检查脚本
 ```
 
 </details>
-
----
-
-## Windows 10 / 11 支持 (`x64`)
-
-GravityBox 提供原生 **.NET 8 WPF** 桌面客户端（`native-win/`），配合 `GravityBox.Win32` / `GravityBox.WinHelper.exe` 原生桥、Named Pipe (`ipc.token`) 隔离通信与开箱默认简体中文（`appLanguage = "zh-Hans"`）及无感快捷方式管理：
-
-```powershell
-npm run build
-npm run test:win
-npm run test:win-native
-npm run verify:win -- --no-vendor
-npm run package:win
-```
-
-Windows 移植验收摘要见 [docs/sdd/acceptance-report-win.md](./docs/sdd/acceptance-report-win.md)。
 
 ---
 
@@ -324,36 +309,33 @@ Windows 移植验收摘要见 [docs/sdd/acceptance-report-win.md](./docs/sdd/acc
 <details>
 <summary><b>为什么切号前需要先退出 Antigravity？</b></summary>
 
-Antigravity 运行时会持续持有本地 SQLite（`state.vscdb`）与认证文件锁，后台强杀或覆写运行中的数据库文件存在损库与草稿丢失风险。GravityBox 先确认安全退出，再执行四阶段快照切换并在异常时原位回滚，切号动作始终由你确认。
+Antigravity 运行时会持续持有本地 SQLite（`state.vscdb`）与认证文件锁，强杀或覆写运行中的数据库存在损库与草稿丢失风险。GravityBox 会先等待官方进程优雅退出，再执行四阶段原子切换并在异常时自动回滚，切号动作始终由你确认。
 
 </details>
 
 <details>
-<summary><b>只想开启输入框 HUD，不汉化 Antigravity 可以吗？</b></summary>
+<summary><b>只想开启输入框 HUD，保持 Antigravity 英文界面可以吗？</b></summary>
 
-可以。在 **设置 → 显示语言** 中选择 **English**，同时保持 **对话状态栏** 开关开启，Antigravity 将保持原生英文界面并在输入框下方展示英文 HUD。
+可以。在 **设置 → 显示语言** 中选择 **English**，同时保持 **对话状态栏 (HUD)** 开关开启，Antigravity 将保持原生英文界面并在输入框下方展示英文 HUD。
 
 </details>
 
 <details>
-<summary><b>如何卸载 GravityBox？</b></summary>
+<summary><b>配置无感启动快捷方式会修改 Antigravity 本体吗？</b></summary>
 
-退出 GravityBox（官方 Antigravity 从未被修改过，无需额外还原），将 `/Applications/GravityBox.app` 移入废纸篓即可；如无需保留历史账单与账号配置，再删除 `~/Library/Application Support/GravityBox`。
+不会。无感启动仅在桌面/开始菜单的 `.lnk` 快捷方式参数中追加官方支持的 `--remote-debugging-port=0`，并在修改前自动保存原始快捷方式备份；随时可在 **设置 → 管理快捷方式…** 中一键还原，卸载安装版时也会自动还原。
 
 </details>
 
 ---
 
-## 参与贡献与开源协议
+## 上游致谢与开源协议
 
-提交代码或反馈请先阅读 [CONTRIBUTING.md](./CONTRIBUTING.md)、[CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md)、[SECURITY.md](./SECURITY.md) 与 [CHANGELOG.md](./CHANGELOG.md)，欢迎在 [GitHub Issues](https://github.com/Enzoo404/gravitybox/issues) 提交讨论。
-
-<div align="center">
-  <a href="https://star-history.com/#Enzoo404/gravitybox&Date">
-    <img src="https://api.star-history.com/svg?repos=Enzoo404/gravitybox&type=Date" alt="Star History Chart" width="680" />
-  </a>
-</div>
+- **开源协议**：本项目沿用上游 [**MIT License**](./LICENSE) 开源发布，完整保留原作者版权声明（`Copyright (c) 2026 Enzoo404`）与 Windows 移植衍生版权声明（`Copyright (c) 2026 Rss3208`）。
+- **上游项目**：衷心感谢 [**Enzoo404/gravitybox**](https://github.com/Enzoo404/gravitybox) 打造了卓越的底层引擎、零改包汉化架构、Telemetry HUD、双周期配额与安全切号模型；如使用 macOS，请直接支持原版仓库。
+- **第三方许可与免责声明**：详见 [`THIRD_PARTY_NOTICES.md`](./THIRD_PARTY_NOTICES.md)。
+- **参与贡献与反馈**：欢迎阅读 [`CONTRIBUTING.md`](./CONTRIBUTING.md)、[`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md)、[`SECURITY.md`](./SECURITY.md) 与 [`CHANGELOG.md`](./CHANGELOG.md)，在 [GitHub Issues](https://github.com/Rss3208/gravitybox-win/issues) 提交建议或问题反馈。
 
 <p align="center">
-  <sub>基于 <a href="./LICENSE">MIT License</a> 开源 · 第三方许可见 <a href="./THIRD_PARTY_NOTICES.md">THIRD_PARTY_NOTICES.md</a> · 与 Google / Antigravity 官方无从属或背书关系。</sub>
+  <sub>基于 <a href="./LICENSE">MIT License</a> 开源 · 移植自 <a href="https://github.com/Enzoo404/gravitybox">Enzoo404/gravitybox</a> · 第三方许可见 <a href="./THIRD_PARTY_NOTICES.md">THIRD_PARTY_NOTICES.md</a> · 与 Google / Antigravity / Microsoft 无从属或背书关系。</sub>
 </p>

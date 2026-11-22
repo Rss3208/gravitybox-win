@@ -47,6 +47,39 @@ public sealed class UpdateManagerTests : IDisposable
     }
 
     [Fact]
+    public void DefaultReleasesEndpoint_PointsToRss3208GravityBoxWin()
+    {
+        using var mgr = new AppUpdateManager("1.1.3");
+        Assert.Equal("https://api.github.com/repos/Rss3208/gravitybox-win/releases/latest", mgr.ReleasesApiUrl);
+        Assert.Equal("https://github.com/Rss3208/gravitybox-win/releases", AppUpdateManager.DefaultReleasesPageUrl);
+    }
+
+    [Fact]
+    public async Task CheckForUpdates_FallsBackToPortableZipWhenSetupAbsent()
+    {
+        string zipName = "GravityBox-1.2.0-win-x64-portable.zip";
+        using var http = new HttpClient(new MockHttpHandler((req, _) =>
+        {
+            string json = $$"""
+            {
+              "tag_name": "v1.2.0",
+              "html_url": "https://github.com/Rss3208/gravitybox-win/releases/tag/v1.2.0",
+              "assets": [
+                { "name": "{{zipName}}", "browser_download_url": "https://example.invalid/{{zipName}}" },
+                { "name": "{{zipName}}.sha256", "browser_download_url": "https://example.invalid/{{zipName}}.sha256" }
+              ]
+            }
+            """;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json) });
+        }));
+
+        using var mgr = new AppUpdateManager("1.1.3", "https://example.invalid/releases/latest", http);
+        var rel = await mgr.CheckForUpdatesAsync();
+        Assert.NotNull(rel);
+        Assert.Equal(zipName, rel!.AssetFileName);
+    }
+
+    [Fact]
     public async Task DownloadAndVerify_AcceptsValidSha256_AndRejectsTamperedPayload()
     {
         byte[] payload = Encoding.UTF8.GetBytes("MZ-VALID-INSTALLER-BYTES");
@@ -61,7 +94,7 @@ public sealed class UpdateManagerTests : IDisposable
                 string json = $$"""
                 {
                   "tag_name": "v1.2.0",
-                  "html_url": "https://github.com/gravitybox/gravitybox/releases/tag/v1.2.0",
+                  "html_url": "https://github.com/Rss3208/gravitybox-win/releases/tag/v1.2.0",
                   "assets": [
                     { "name": "{{fileName}}", "browser_download_url": "https://example.invalid/{{fileName}}" },
                     { "name": "{{fileName}}.sha256", "browser_download_url": "https://example.invalid/{{fileName}}.sha256" }

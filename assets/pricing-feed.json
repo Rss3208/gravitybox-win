@@ -2,7 +2,7 @@
   "version": "2026-11-19-r2",
   "schema": 1,
   "updatedAt": "2026-11-19T05:00:00Z",
-  "source": "https://raw.githubusercontent.com/Enzoo404/gravitybox/main/assets/pricing-feed.json",
+  "source": "https://raw.githubusercontent.com/Rss3208/gravitybox-win/main/assets/pricing-feed.json",
   "aliases": {
     "gemini-pro-orchestrator-g1-pro": "gemini-4-argon",
     "gemini-pro-orchestrator-argon": "gemini-4-argon",

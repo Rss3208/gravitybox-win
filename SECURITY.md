@@ -25,7 +25,7 @@ GravityBox 高度重视用户的数据安全与隐私保护。作为一款涉及
 1. **GitHub Private Vulnerability Reporting**（首选）：
    前往仓库的 **Security** -> **Advisories** -> **Report a vulnerability** 页面，在线提交加密漏洞报告。
 2. **私密邮件沟通**：
-   发送详细报告至项目维护者邮箱：[enzoo404@users.noreply.github.com](mailto:enzoo404@users.noreply.github.com)
+   发送详细报告至项目维护者邮箱：[Rss3208@users.noreply.github.com](mailto:Rss3208@users.noreply.github.com)
 
 ### 提报内容建议包含：
 - 漏洞类型与详细描述（如凭据隔离失效、IPC 未授权执行、未脱敏日志泄露等）；
@@ -48,6 +48,6 @@ GravityBox 高度重视用户的数据安全与隐私保护。作为一款涉及
 GravityBox 在架构层遵循以下核心安全保障机制：
 
 - **零外部遥测与外联声明**：应用绝不在后台发起未经许可的第三方遥测、分析或数据收集请求；自动更新与模型价格同步默认关闭，仅在用户明确启用或手动点击检查时请求 GitHub Releases 及公开价格源（GitHub Raw 与 `cdn.jsdelivr.net` 回退域名）。
-- **本机凭据存储与访问限制**：账号库位于 `~/Library/Application Support/GravityBox`。账号文件 `accounts/<id>.json` 包含未加密的 OAuth 凭据（包括 Access Token、Refresh Token）；应用以 `0600` 权限创建账号文件及相关原子写入文件，限制为当前用户可读写。macOS Keychain 用于读取或写入 Antigravity 登录态，并非账号库凭据的唯一存储位置。文件权限不等同于加密，也不能阻止以当前用户身份运行且具有文件访问权限的程序或管理员读取凭据。
+- **本机凭据存储与访问限制**：Windows 端账号库位于 `%LOCALAPPDATA%\GravityBox`（macOS 端位于 `~/Library/Application Support/GravityBox`）。Windows 端凭据文件使用当前用户级 **Windows DPAPI (`CryptProtectData` / `DataProtectionScope.CurrentUser`)** 加密保护，并结合当前用户私有 ACL / Named Pipe 当前用户 SID 校验；macOS 端账号文件以 `0600` 权限保存并通过 Keychain 同步官方登录态。需注意当前用户权限下的同级进程或本机管理员仍可访问用户环境，切勿将用户数据目录或凭据备份提交至仓库或分享给他人。
 - **IPC 深度脱敏**：前端 Native 进程与后端 TypeScript 控制器之间的通信通道严格进行敏感字段清洗与权限校验。
 - **恢复记录与归档脱敏**：当前切号恢复记录可能保留恢复所需的登录凭据；历史切号归档对 OAuth 令牌、钥匙串内容和账号文件等敏感字段作脱敏处理。用户数据目录及含凭据备份不得加入公开源码、安装包或公开问题附件；备份、同步或分享这些文件时应按敏感凭据处理。

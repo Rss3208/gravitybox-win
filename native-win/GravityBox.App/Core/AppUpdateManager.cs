@@ -24,10 +24,16 @@ public sealed record ReleaseAssetInfo(
     string Version,
     string InstallerUrl,
     string Sha256SidecarUrl,
-    string ReleaseNotesUrl);
+    string ReleaseNotesUrl,
+    string AssetFileName = "");
 
 public sealed class AppUpdateManager : IDisposable
 {
+    public const string DefaultReleasesApiUrl = "https://api.github.com/repos/Rss3208/gravitybox-win/releases/latest";
+    public const string DefaultReleasesPageUrl = "https://github.com/Rss3208/gravitybox-win/releases";
+    public const string DefaultRepositoryUrl = "https://github.com/Rss3208/gravitybox-win";
+    public const string UpstreamRepositoryUrl = "https://github.com/Enzoo404/gravitybox";
+
     private static readonly Regex SemVerRegex = new(@"(\d+)\.(\d+)\.(\d+)", RegexOptions.Compiled);
     private static readonly Regex SidecarRegex = new(@"^([0-9a-fA-F]{64})\s+\*?(.+?)\s*$", RegexOptions.Compiled);
 
@@ -46,7 +52,7 @@ public sealed class AppUpdateManager : IDisposable
 
     public AppUpdateManager(
         string currentVersion,
-        string releasesApiUrl = "https://api.github.com/repos/gravitybox/gravitybox/releases/latest",
+        string releasesApiUrl = DefaultReleasesApiUrl,
         HttpClient? httpClient = null)
     {
         CurrentVersion = NormalizeVersion(currentVersion);
@@ -55,7 +61,7 @@ public sealed class AppUpdateManager : IDisposable
         _http = httpClient ?? new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
         if (_http.DefaultRequestHeaders.UserAgent.Count == 0)
         {
-            _http.DefaultRequestHeaders.UserAgent.ParseAdd("GravityBox-Windows/1.1.3");
+            _http.DefaultRequestHeaders.UserAgent.ParseAdd($"GravityBox-Windows/{CurrentVersion}");
         }
     }
 
@@ -126,9 +132,13 @@ public sealed class AppUpdateManager : IDisposable
             }
 
             string expectedExeName = $"GravityBox-{remoteVer}-win-x64-setup.exe";
-            string expectedShaName = $"{expectedExeName}.sha256";
+            string expectedExeShaName = $"{expectedExeName}.sha256";
+            string expectedZipName = $"GravityBox-{remoteVer}-win-x64-portable.zip";
+            string expectedZipShaName = $"{expectedZipName}.sha256";
             string? exeUrl = null;
-            string? shaUrl = null;
+            string? exeShaUrl = null;
+            string? zipUrl = null;
+            string? zipShaUrl = null;
 
             if (root.TryGetProperty("assets", out var assetsEl) && assetsEl.ValueKind == JsonValueKind.Array)
             {
@@ -137,17 +147,35 @@ public sealed class AppUpdateManager : IDisposable
                     string name = asset.TryGetProperty("name", out var nEl) ? (nEl.GetString() ?? string.Empty) : string.Empty;
                     string dl = asset.TryGetProperty("browser_download_url", out var dEl) ? (dEl.GetString() ?? string.Empty) : string.Empty;
                     if (string.Equals(name, expectedExeName, StringComparison.OrdinalIgnoreCase)) exeUrl = dl;
-                    else if (string.Equals(name, expectedShaName, StringComparison.OrdinalIgnoreCase)) shaUrl = dl;
+                    else if (string.Equals(name, expectedExeShaName, StringComparison.OrdinalIgnoreCase)) exeShaUrl = dl;
+                    else if (string.Equals(name, expectedZipName, StringComparison.OrdinalIgnoreCase)) zipUrl = dl;
+                    else if (string.Equals(name, expectedZipShaName, StringComparison.OrdinalIgnoreCase)) zipShaUrl = dl;
                 }
             }
 
-            if (string.IsNullOrEmpty(exeUrl) || string.IsNullOrEmpty(shaUrl))
+            string? chosenUrl = null;
+            string? chosenShaUrl = null;
+            string? chosenFileName = null;
+            if (!string.IsNullOrEmpty(exeUrl) && !string.IsNullOrEmpty(exeShaUrl))
+            {
+                chosenUrl = exeUrl;
+                chosenShaUrl = exeShaUrl;
+                chosenFileName = expectedExeName;
+            }
+            else if (!string.IsNullOrEmpty(zipUrl) && !string.IsNullOrEmpty(zipShaUrl))
+            {
+                chosenUrl = zipUrl;
+                chosenShaUrl = zipShaUrl;
+                chosenFileName = expectedZipName;
+            }
+
+            if (string.IsNullOrEmpty(chosenUrl) || string.IsNullOrEmpty(chosenShaUrl) || string.IsNullOrEmpty(chosenFileName))
             {
                 SetState(UpdateStatusKind.Error, "新版本尚未提供完整的 Windows 安装包或 SHA-256 校验文件");
                 return null;
             }
 
-            LatestRelease = new ReleaseAssetInfo(remoteVer, exeUrl, shaUrl, htmlUrl);
+            LatestRelease = new ReleaseAssetInfo(remoteVer, chosenUrl, chosenShaUrl, htmlUrl, chosenFileName);
             SetState(UpdateStatusKind.Available, $"发现新版本 {remoteVer}");
             return LatestRelease;
         }
@@ -175,7 +203,9 @@ public sealed class AppUpdateManager : IDisposable
         _downloadCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var ct = _downloadCts.Token;
 
-        string fileName = $"GravityBox-{release.Version}-win-x64-setup.exe";
+        string fileName = string.IsNullOrWhiteSpace(release.AssetFileName)
+            ? $"GravityBox-{release.Version}-win-x64-setup.exe"
+            : release.AssetFileName;
         string targetPath = Path.Combine(downloadDir, fileName);
         string tempPath = targetPath + ".downloading";
 

@@ -58,6 +58,13 @@ public sealed class ThemeService : IDisposable
         return true;
     }
 
+    public void SetThemeForPreview(AppThemeMode theme, System.Windows.Application? app)
+    {
+        CurrentTheme = theme;
+        ApplyToApplication(app);
+        ThemeChanged?.Invoke(CurrentTheme);
+    }
+
     public void RefreshFromSystem()
     {
         var next = _isLightThemeReader() ? AppThemeMode.Light : AppThemeMode.Dark;

@@ -2,7 +2,7 @@
 
 感谢你关注并参与 GravityBox 的开源建设！
 
-GravityBox 致力于为 macOS 用户提供优雅、原生且注重隐私安全的 Antigravity 辅助工具箱。无论你是提交 Bug 报告、提出功能建议、改进词典质量，还是编写代码，我们都非常欢迎你的贡献。
+GravityBox for Windows（基于上游 [`Enzoo404/gravitybox`](https://github.com/Enzoo404/gravitybox) 移植并增强）致力于为 Windows 10/11（同时保留 macOS 跨平台能力）用户提供优雅、原生、开箱默认中文且注重隐私安全的 Antigravity 辅助工具箱。无论你是提交 Bug 报告、提出功能建议、改进词典质量，还是编写代码，我们都非常欢迎你的贡献。
 
 参与本项目即表示你同意遵守我们的 [贡献者行为准则 (CODE_OF_CONDUCT.md)](./CODE_OF_CONDUCT.md)。如发现安全或隐私漏洞，请勿公开提交 Issue，请按 [安全策略 (SECURITY.md)](./SECURITY.md) 私下提报。
 
@@ -22,6 +22,14 @@ GravityBox 致力于为 macOS 用户提供优雅、原生且注重隐私安全�
 
 ## 1. 开发环境要求
 
+### Windows 10/11 (`x64`, 本仓库主要开发目标)
+- **操作系统**：Windows 10 (1903+) 或 Windows 11 (`x64`)
+- **Node.js**：`>=22.15.0 <23`
+- **.NET SDK**：`.NET 8 SDK`（用于构建与测试 `native-win/GravityBox.sln` WPF / Win32 客户端）
+- **Inno Setup 6**（可选，仅构建 `setup.exe` 安装包时需要）
+- **Google Chrome / Edge**：用于运行基于 CDP 的无头浏览器回归套件
+
+### macOS（可选，用于兼容验证上游 macOS 客户端）
 - **操作系统**：macOS 14 (Sonoma) 或更高版本（推荐 Apple Silicon 芯片）
 - **Node.js**：`>=22.15.0 <23`（推荐使用 nvm 或 fnm 管理）
 - **Swift / Xcode CLI Tools**：系统自带 `swiftc`（Xcode Command Line Tools）
@@ -38,18 +46,23 @@ npm run doctor
 
 ```bash
 # 1. 克隆代码仓库
-git clone https://github.com/Enzoo404/gravitybox.git
-cd gravitybox
+git clone https://github.com/Rss3208/gravitybox-win.git
+cd gravitybox-win
 
-# 2. 安装开发依赖并初始化环境
+# 2. 安装开发依赖并编译后端
 npm ci
-npm run setup:dev
+npm run build
 
-# 3. 运行常规编译与单元/集成测试
-npm test
+# 3. 运行 Windows 后端单元测试与 .NET 8 原生测试
+npm run test:win
+npm run test:win-native
 
-# 4. 运行完整发布门禁（含浏览器回归、Swift -O 检查与全版本词典门禁）
-npm run verify
+# 4. 运行隐私与文档一致性门禁
+npm run check:privacy
+node tools/check-docs.mjs --source-only
+
+# 5. 生成 Windows 便携版 ZIP 与 Inno Setup 安装包（需安装 Inno Setup 6）
+npm run package:win
 ```
 
 ---
@@ -123,7 +136,7 @@ npm run verify
 2. 基于 `main` 分支拉取开发分支（例如 `feat/your-feature-name`）。
 3. 编写代码并增加对应的单元测试或浏览器测试。
 4. 运行 `npm test`（日常单测）与 `npm run verify`（提交发布相关改动时），确保完整门禁通过。
-5. 推送至个人分支并向 `Enzoo404/gravitybox:main` 发起 Pull Request。
+5. 推送至个人分支并向 `Rss3208/gravitybox-win:main` 发起 Pull Request。
 6. CI 自动化检查通过后，核心维护者将对 PR 进行 Review 并合并。
 
 ## 7. 维护与版本发布

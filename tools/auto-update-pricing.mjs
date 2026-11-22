@@ -1756,11 +1756,11 @@ export async function runAutoUpdatePricing(options = {}) {
     try {
       const [modelsResult, enterpriseResult] = await Promise.allSettled([
         fetchImpl(antigravityModelsUrl, {
-          headers: { 'User-Agent': 'GravityBox-PricingWatch/1.2 (+https://github.com/Enzoo404/gravitybox)' },
+          headers: { 'User-Agent': 'GravityBox-PricingWatch/1.2 (+https://github.com/Rss3208/gravitybox-win)' },
           signal: AbortSignal.timeout(15_000),
         }),
         fetchImpl(antigravityEnterpriseUrl, {
-          headers: { 'User-Agent': 'GravityBox-PricingWatch/1.2 (+https://github.com/Enzoo404/gravitybox)' },
+          headers: { 'User-Agent': 'GravityBox-PricingWatch/1.2 (+https://github.com/Rss3208/gravitybox-win)' },
           signal: AbortSignal.timeout(15_000),
         }),
       ]);
@@ -1866,7 +1866,7 @@ export async function runAutoUpdatePricing(options = {}) {
         method: 'GET',
         redirect: 'follow',
         headers: {
-          'User-Agent': 'GravityBox-PricingWatch/1.2 (+https://github.com/Enzoo404/gravitybox)',
+          'User-Agent': 'GravityBox-PricingWatch/1.2 (+https://github.com/Rss3208/gravitybox-win)',
           Accept: 'text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8',
         },
         signal: AbortSignal.timeout(20_000),
@@ -1882,7 +1882,7 @@ export async function runAutoUpdatePricing(options = {}) {
             method: 'GET',
             redirect: 'follow',
             headers: {
-              'User-Agent': 'GravityBox-PricingWatch/1.2 (+https://github.com/Enzoo404/gravitybox)',
+              'User-Agent': 'GravityBox-PricingWatch/1.2 (+https://github.com/Rss3208/gravitybox-win)',
               Accept: 'text/markdown,text/plain;q=0.9,*/*;q=0.8',
             },
             signal: AbortSignal.timeout(20_000),

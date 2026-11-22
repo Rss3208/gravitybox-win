@@ -21,14 +21,23 @@ function resolveDotnetExecutable() {
   return 'dotnet';
 }
 
-export async function buildWindowsStage({ selfContained = true } = {}) {
+export async function buildWindowsStage({ selfContained = true, stageDir: customStageDir } = {}) {
   if (process.platform !== 'win32') {
     throw new Error('build-win.mjs must be run on Windows');
   }
 
   const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
-  const stageDir = join(root, 'build', 'win-stage', 'GravityBox');
-  await rm(stageDir, { recursive: true, force: true });
+  let stageDir = customStageDir ?? process.env.GB_BUILD_STAGE_DIR ?? join(root, 'build', 'win-stage', 'GravityBox');
+  try {
+    await rm(stageDir, { recursive: true, force: true });
+  } catch (err) {
+    if (err?.code === 'EBUSY' || err?.code === 'EPERM') {
+      stageDir = join(root, 'build', 'win-stage', `GravityBox-${Date.now()}`);
+      console.log(`[build-win] Default stage dir is in use; staging into ${stageDir}`);
+    } else {
+      throw err;
+    }
+  }
   await mkdir(stageDir, { recursive: true });
 
   // 1. Build TypeScript backend

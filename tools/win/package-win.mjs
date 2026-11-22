@@ -54,7 +54,7 @@ export async function packageWindows() {
   if (iscc) {
     const issPath = join(root, 'tools', 'win', 'installer.iss');
     console.log(`[package-win] Compiling Inno Setup installer via ${iscc}...`);
-    await execFileAsync(iscc, [`/DAppVersion=${version}`, issPath], { cwd: root });
+    await execFileAsync(iscc, [`/DAppVersion=${version}`, `/DStageDir=${stageDir}`, issPath], { cwd: root });
     const setupPath = join(outDir, `GravityBox-${version}-win-x64-setup.exe`);
     if (existsSync(setupPath)) {
       await writeSha256Sidecar(setupPath);

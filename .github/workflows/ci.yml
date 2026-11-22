@@ -230,7 +230,7 @@ jobs:
         run: npm run build
 
       - name: Fast Unit & Windows Integration Tests
-        run: node tools/run-tests.mjs --fast --win
+        run: node tools/run-tests.mjs --win
 
       - name: Supported Dictionary Gates
         run: node tools/verify.mjs --dict-only --no-vendor

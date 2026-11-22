@@ -8,7 +8,18 @@ All accounts, emails, quotas, and token metrics are generated from isolated synt
 
 ## Generation Pipeline
 
-- **Native macOS AppKit Windows & Menu Bar Panel** (`40 PNGs`: 20 English `en-*.png` + 20 Chinese): captured via `npm run test:native-ui` in headless isolation and composited with macOS window framing and Hero backdrops by `swift tools/generate-screenshots.swift`.
+- **Native Windows .NET 8 WPF Console & System Tray Flyout** (`14 PNGs` in `assets/screenshots/win/`): captured directly from `GravityBox.exe --export-screenshots assets/screenshots/win` at 2x DPI (192 DPI) in Light & Dark themes using sanitized synthetic fixtures (`@example.invalid` / `C:\Users\demo\...`).
+  - `win-hero.png` / `win-hero-dark.png` — Hero composite (Main Overview + Tray Flyout)
+  - `win-overview.png` / `win-overview-dark.png` — Main Console · Overview
+  - `win-accounts.png` / `win-accounts-dark.png` — Main Console · Accounts
+  - `win-usage.png` / `win-usage-dark.png` — Main Console · Usage & API Cost
+  - `win-settings.png` / `win-settings-dark.png` — Main Console · Settings
+  - `win-about.png` / `win-about-dark.png` — Main Console · About (`v1.1.3`)
+  - `win-tray.png` / `win-tray-dark.png` — System Tray Flyout
+- **Windows IDE Localization & Live HUD Showcases** (`4 PNGs` in `assets/screenshots/win/`): rendered live by the compiled `dist/engine.js` + `dict/base.json` inside headless Chrome at `deviceScaleFactor: 2` via `node tools/win/capture-win-ide-screenshots.mjs`.
+  - `win-i18n-compare.png` / `win-i18n-compare-dark.png` — Original English vs. Zero-Patch Default Chinese + Live HUD comparison
+  - `win-i18n-hud.png` / `win-i18n-hud-dark.png` — Localized Windows Antigravity IDE with expanded Session Stats HUD popover
+- **Native macOS AppKit Windows & Menu Bar Panel** (`40 PNGs`: 20 English `en-*.png` + 20 Chinese): upstream macOS assets captured via `npm run test:native-ui`.
 - **In-IDE Telemetry HUD** (`20 PNGs`: 10 English `en-hud*.png` + 10 Chinese `hud*.png`): rendered with the real compiled `dist/engine.js` (`runtime/hud-*.js`) inside headless Chromium at `deviceScaleFactor: 2` via `node tools/capture-hud-screenshots.mjs`.
 
 ## Asset Index

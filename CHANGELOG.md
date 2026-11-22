@@ -6,9 +6,14 @@
 
 ## [Unreleased]
 
-## [1.1.3] - 2026-11-21
+## [1.1.3] - 2026-11-22
 
 ### Added
+- **Windows 10/11 Native Port & Default Chinese Localization (`Rss3208/gravitybox-win`)**：基于上游 [`Enzoo404/gravitybox`](https://github.com/Enzoo404/gravitybox)（MIT）完成完整 Windows 10/11 (`x64`) 原生移植：
+  - 全新 `.NET 8 / C# WPF` 现代浅/深色桌面客户端（`native-win/GravityBox.App`）：5 页主控制台（总览 / 账号 / 用量 / 设置 / 关于）、系统托盘图标与多屏 DPI 自适应托盘悬浮窗、自绘矢量用量折线图 / 费用环形图 / 双周期配额进度条与缓存分布条；
+  - **开箱默认简体中文 + 无感启动快捷方式**：Windows 端默认 `appLanguage = "zh-Hans"`，并内置 `GravityBox.WinHelper.exe` 与桌面/开始菜单 `.lnk` 快捷方式接管引导（支持原始快捷方式快照备份与一键/卸载自动无损还原），双击原 Antigravity 图标即可自动注入中文汉化与会话遥测 HUD；
+  - **Windows 平台抽象层与本地安全隔离（`src/platform/` & `GravityBox.Win32`）**：Named Pipe (`\\.\pipe\gravitybox-ipc-<userSid>`) 当前用户 SID 级安全 IPC、Windows DPAPI (`CurrentUser`) 凭据加密、Antigravity 进程环境探测、Job Object 子进程托管防孤儿进程、以及 Windows 回收站可撤销缓存清理与 7 天切号恢复点；
+  - **自包含发布与校验流水线（`tools/win/`）**：支持输出免安装自包含便携包（`GravityBox-1.1.3-win-x64-portable.zip`）与每用户免 UAC Inno Setup 安装程序（`GravityBox-1.1.3-win-x64-setup.exe`）及配套 `.sha256` 校验文件，应用内更新指向 `Rss3208/gravitybox-win` Releases。
 - **JSON Account Import & `0600` Backup Export (`#20`)**：由账号页头部统一「管理账号…」入口唤起三卡式 `AddAccountSheet`（「保存当前账号 + 导入账号 + 导出账号」）；后端 `importAccountsFromJson` / `exportAccountsBackup` 支持单文件、多文件与目录批量导入（单锁批量事务、按标准化邮箱去重以隔离外部 ID 碰撞），导出需经二次交互确认并由后端直接以 `0600` 权限原子落盘（IPC 零凭据返回，且禁止覆写内部状态目录文件）。
 
 ### Changed
@@ -193,8 +198,8 @@
 ### Fixed
 - **Native UI**：保持菜单栏状态图标在不同翻译开关状态下的不透明度一致（`b9921e8`，已包含于 1.0.0）。
 
-[Unreleased]: https://github.com/Enzoo404/gravitybox/compare/v1.1.3...HEAD
-[1.1.3]: https://github.com/Enzoo404/gravitybox/compare/v1.1.2...v1.1.3
+[Unreleased]: https://github.com/Rss3208/gravitybox-win/compare/v1.1.3...HEAD
+[1.1.3]: https://github.com/Rss3208/gravitybox-win/releases/tag/v1.1.3
 [1.1.2]: https://github.com/Enzoo404/gravitybox/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/Enzoo404/gravitybox/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/Enzoo404/gravitybox/compare/v1.0.5...v1.1.0

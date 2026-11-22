@@ -343,7 +343,7 @@ public sealed partial class UsageViewModel : ObservableObject
             EstimatedCostText = $"${usd:0.00}";
             CacheHitRatePct = hitRate;
             CacheHitRateText = $"{hitRate:0.0}%";
-            CacheReadSummaryText = $"缓存命中 {QuotaFormatting.FormatCompactCount(cachedTok)} / 输入基数 {QuotaFormatting.FormatCompactCount(inputTok + cachedTok)}";
+            CacheReadSummaryText = $"命中 {QuotaFormatting.FormatCompactCount(cachedTok)} / {QuotaFormatting.FormatCompactCount(inputTok + cachedTok)}";
             TrendBadgeText = periodBadge;
 
             ModelRows.Clear();

@@ -112,9 +112,26 @@ public sealed partial class AboutViewModel : ObservableObject
     [RelayCommand]
     public void OpenReleasesPage()
     {
+        OpenExternalUrl(AppUpdateManager.DefaultReleasesPageUrl);
+    }
+
+    [RelayCommand]
+    public void OpenRepositoryPage()
+    {
+        OpenExternalUrl(AppUpdateManager.DefaultRepositoryUrl);
+    }
+
+    [RelayCommand]
+    public void OpenUpstreamPage()
+    {
+        OpenExternalUrl(AppUpdateManager.UpstreamRepositoryUrl);
+    }
+
+    private static void OpenExternalUrl(string url)
+    {
         try
         {
-            Process.Start(new ProcessStartInfo("https://github.com/gravitybox-dev/GravityBox/releases") { UseShellExecute = true });
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
         }
         catch
         {

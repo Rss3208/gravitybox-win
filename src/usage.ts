@@ -168,7 +168,7 @@ export class UsageStatsManager {
     this.pricingCachePath = join(stateDir, 'api_pricing.json');
     this.remotePricingCachePath = join(stateDir, 'remote_pricing.json');
     this.pricingSyncStatePath = join(stateDir, 'pricing-sync-status.json');
-    this.remotePricingUrl = options?.remotePricingUrl ?? process.env.GRAVITYBOX_PRICING_FEED_URL ?? 'https://raw.githubusercontent.com/Enzoo404/gravitybox/main/assets/pricing-feed.json';
+    this.remotePricingUrl = options?.remotePricingUrl ?? process.env.GRAVITYBOX_PRICING_FEED_URL ?? 'https://raw.githubusercontent.com/Rss3208/gravitybox-win/main/assets/pricing-feed.json';
     this.customRemoteUrlConfigured = Boolean(options?.remotePricingUrl || process.env.GRAVITYBOX_PRICING_FEED_URL);
     this.fallbackPricingUrls = options?.fallbackPricingUrls ?? DEFAULT_PRICING_FEED_URLS;
     this.autoRemotePricingSync = false;

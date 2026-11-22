@@ -7,11 +7,11 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: '已存在的版本标签（如 v1.1.1）；仅构建草稿，不公开发布'
+        description: '已存在的版本标签（如 v1.1.3）；仅构建 Windows 草稿，不自动公开'
         required: true
         type: string
       inspect_only:
-        description: '只读检查现有草稿（从 main 运行，不构建、不上传、不公开）'
+        description: '只读检查现有发布（从 main 运行，不构建、不上传、不公开）'
         required: true
         default: false
         type: boolean
@@ -24,145 +24,124 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  inspect-draft:
-    name: Inspect Existing Draft (Read Only)
+  inspect-release:
+    name: Inspect Existing Release (Read Only)
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.inspect_only }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    # GitHub only lists drafts for identities with push access. This job performs GETs only.
     permissions:
       contents: write
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       RELEASE_TAG: ${{ inputs.tag }}
     steps:
-      - name: Require Main Controller
-        shell: bash
-        run: '[[ "$GITHUB_REF" == refs/heads/main ]] || { echo "请从 main 运行只读检查" >&2; exit 1; }'
-      - name: Checkout Controller & Tags
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Setup Node.js 22
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Inspect Uploaded Draft Metadata
-        run: node tools/release-control.mjs inspect
-
-  build-draft:
-    name: Verify & Prepare Draft DMG
-    if: ${{ github.event_name == 'push' || !inputs.inspect_only }}
-    runs-on: macos-latest
-    timeout-minutes: 25
-    permissions:
-      contents: write
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
-    steps:
-      - name: Validate Tag Format
+      - name: Check Existing Release Metadata
         shell: bash
         run: |
-          [[ "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || { echo '需要 vX.Y.Z 正式版本标签' >&2; exit 1; }
-
-      - name: Checkout Tagged Code
-        uses: actions/checkout@v4
-        with:
-          ref: refs/tags/${{ inputs.tag || github.ref_name }}
-
-      - name: Setup Node.js 22
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: 'npm'
-
-      - name: Check Version, Commit & Existing Release
-        run: node tools/release-control.mjs preflight
-
-      - name: Install Dependencies
-        run: npm ci --ignore-scripts
-
-      - name: Check Development Environment
-        run: npm run doctor
-
-      - name: Cache Pinned Test Browser
-        uses: actions/cache@v4
-        with:
-          path: .cache/test-chrome-*
-          key: ${{ runner.os }}-${{ runner.arch }}-chrome-${{ hashFiles('tools/setup-test-browser.mjs') }}
-
-      - name: Setup Pinned Test Browser
-        run: node tools/setup-test-browser.mjs
-
-      - name: Verify & Package DMG
-        env:
-          CI: true
-          GRAVITYBOX_CI_HEADLESS: '1'
-          TZ: UTC
-        run: |
-          node tools/verify.mjs --no-vendor
-          node tools/package-mac.mjs
-          node tools/release-control.mjs manifest
-
-      - name: Create Draft Without Replacing Assets
-        shell: bash
-        run: |
-          node tools/release-control.mjs preflight
-          DMG="成品/GravityBox-${RELEASE_TAG#v}-arm64.dmg"
-          gh release create "$RELEASE_TAG" "$DMG" "$DMG.sha256" 成品/release-manifest.json \
-            --draft --verify-tag --title "GravityBox $RELEASE_TAG" --generate-notes
-          echo '草稿已生成。下载并验收此 DMG 后，通过 Publish Accepted Release 手动发布；不要重新构建。' >> "$GITHUB_STEP_SUMMARY"
-          cat "$DMG.sha256" >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Verify Uploaded Draft Metadata
-        run: node tools/release-control.mjs inspect
+          gh release view "$RELEASE_TAG" --repo "${{ github.repository }}" || echo "Release $RELEASE_TAG not found."
 
   build-draft-win:
-    name: Verify & Prepare Windows Artifacts
+    name: Verify & Prepare Windows Release Artifacts
     if: ${{ github.event_name == 'push' || !inputs.inspect_only }}
-    needs: build-draft
     runs-on: windows-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     permissions:
       contents: write
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
     steps:
+      - name: Validate Tag Format & Skip If Already Published
+        id: precheck
+        shell: pwsh
+        run: |
+          $tag = "${{ env.RELEASE_TAG }}"
+          if ($tag -notmatch '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$') {
+            Write-Error "需要 vX.Y.Z 正式版本标签，收到：$tag"
+            exit 1
+          }
+          $existingJson = gh release view "$tag" --repo "${{ github.repository }}" --json isDraft 2>$null
+          if ($LASTEXITCODE -eq 0 -and $existingJson) {
+            $parsed = $existingJson | ConvertFrom-Json
+            if (-not $parsed.isDraft) {
+              Write-Output "skip=true" >> $env:GITHUB_OUTPUT
+              Write-Output "Release $tag is already published; skipping duplicate draft build."
+              exit 0
+            }
+          }
+          Write-Output "skip=false" >> $env:GITHUB_OUTPUT
+
       - name: Checkout Tagged Code
+        if: steps.precheck.outputs.skip != 'true'
         uses: actions/checkout@v4
         with:
           ref: refs/tags/${{ inputs.tag || github.ref_name }}
 
       - uses: actions/setup-node@v4
+        if: steps.precheck.outputs.skip != 'true'
         with:
           node-version: 22
           cache: 'npm'
 
       - uses: actions/setup-dotnet@v4
+        if: steps.precheck.outputs.skip != 'true'
         with:
           dotnet-version: '8.0.x'
 
       - name: Install Dependencies
+        if: steps.precheck.outputs.skip != 'true'
         run: npm ci --ignore-scripts
 
-      - name: Verify & Package Windows
+      - name: Verify Privacy, Docs, Build & Tests
+        if: steps.precheck.outputs.skip != 'true'
+        env:
+          CI: true
+          GRAVITYBOX_CI_HEADLESS: '1'
+          TZ: UTC
         run: |
-          node tools/verify.mjs --no-vendor
-          node tools/win/package-win.mjs
+          node tools/check-privacy.mjs
+          node tools/check-docs.mjs --source-only
+          npm run build
+          node tools/sync-pricing-feed.mjs
+          node tools/run-tests.mjs --win
+          dotnet test native-win/GravityBox.sln -c Release
+          node tools/verify.mjs --dict-only --no-vendor
 
-      - name: Upload Windows Assets to Draft Release
+      - name: Package Windows Installer & Portable ZIP
+        if: steps.precheck.outputs.skip != 'true'
+        run: node tools/win/package-win.mjs
+
+      - name: Create or Update Draft Release with Windows Assets
+        if: steps.precheck.outputs.skip != 'true'
         shell: pwsh
         run: |
-          $ver = "${{ env.RELEASE_TAG }}".TrimStart('v')
-          $zip = "成品/GravityBox-$ver-win-x64-portable.zip"
-          gh release upload "${{ env.RELEASE_TAG }}" "$zip" "$zip.sha256" --clobber
+          $tag = "${{ env.RELEASE_TAG }}"
+          $ver = $tag.TrimStart('v')
+          $assets = @()
+          foreach ($candidate in @(
+            "成品/GravityBox-$ver-win-x64-setup.exe",
+            "成品/GravityBox-$ver-win-x64-setup.exe.sha256",
+            "成品/GravityBox-$ver-win-x64-portable.zip",
+            "成品/GravityBox-$ver-win-x64-portable.zip.sha256"
+          )) {
+            if (Test-Path $candidate) { $assets += $candidate }
+          }
+          if ($assets.Count -eq 0) {
+            Write-Error "No Windows release assets produced."
+            exit 1
+          }
+          $exists = gh release view "$tag" --repo "${{ github.repository }}" 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload "$tag" @assets --repo "${{ github.repository }}" --clobber
+          } else {
+            gh release create "$tag" @assets --repo "${{ github.repository }}" --draft --verify-tag --title "GravityBox for Windows $tag" --generate-notes
+          }
 
       - name: Preserve Verification Reports
-        if: always()
+        if: always() && steps.precheck.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: release-verification-${{ github.run_id }}
+          name: release-verification-win-${{ github.run_id }}
           path: 质检报告/
+          if-no-files-found: ignore
           retention-days: 7

@@ -35,7 +35,7 @@ export function buildPricingFeed(catalog) {
     version: catalog.pricingVersion,
     schema: 1,
     updatedAt: catalog.pricingUpdatedAt,
-    source: 'https://raw.githubusercontent.com/Enzoo404/gravitybox/main/assets/pricing-feed.json',
+    source: 'https://raw.githubusercontent.com/Rss3208/gravitybox-win/main/assets/pricing-feed.json',
     ...(hasAliases ? { aliases: catalog.aliases } : {}),
     ...(hasActiveModels ? { activeModels: catalog.activeModels } : {}),
     ...(hasFeedModels ? { feedModels: [...catalog.feedModels] } : {}),

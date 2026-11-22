@@ -14,7 +14,7 @@
                     </Grid.ColumnDefinitions>
                     <StackPanel Grid.Column="0">
                         <TextBlock Text="GravityBox for Windows" Style="{StaticResource CardTitleStyle}" FontSize="18" />
-                        <TextBlock Text="{Binding VersionText, StringFormat='版本 {0}'}" Style="{StaticResource SecondaryLabelStyle}" Margin="0,4,0,0" />
+                        <TextBlock Text="{Binding VersionText, StringFormat='版本 {0} · Windows x64 原生版'}" Style="{StaticResource SecondaryLabelStyle}" Margin="0,4,0,0" />
                         <TextBlock Text="{Binding UpdateStatusText}" FontSize="12.5" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,8,0,0" />
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
@@ -33,14 +33,14 @@
                     </Grid.ColumnDefinitions>
                     <StackPanel Grid.Column="0">
                         <TextBlock Text="启动时自动检查更新" FontWeight="Medium" Foreground="{DynamicResource TextPrimaryBrush}" />
-                        <TextBlock Text="默认关闭；开启后仅连接 GitHub Releases 官方接口" Style="{StaticResource SecondaryLabelStyle}" />
+                        <TextBlock Text="默认关闭；开启后仅连接 Rss3208/gravitybox-win GitHub Releases 接口" Style="{StaticResource SecondaryLabelStyle}" />
                     </StackPanel>
                     <CheckBox Grid.Column="1" Style="{StaticResource DesignSwitchStyle}" IsChecked="{Binding AutoUpdateEnabled, Mode=TwoWay}" />
                 </Grid>
             </Border>
 
             <!-- Target Antigravity Info & Data Directory -->
-            <Border Style="{StaticResource CardContainerStyle}">
+            <Border Style="{StaticResource CardContainerStyle}" Margin="0,0,0,12">
                 <StackPanel>
                     <Grid Margin="0,0,0,12">
                         <Grid.ColumnDefinitions>
@@ -63,6 +63,27 @@
                         <TextBlock Text="{Binding AntigravityPathText}" Style="{StaticResource SecondaryLabelStyle}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" ToolTip="{Binding AntigravityPathText}" />
                     </StackPanel>
                 </StackPanel>
+            </Border>
+
+            <!-- Open-Source License & Upstream Attribution -->
+            <Border Style="{StaticResource CardContainerStyle}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                        <TextBlock Text="开源协议与上游致谢 (MIT License)" FontWeight="Medium" Foreground="{DynamicResource TextPrimaryBrush}" />
+                        <TextBlock Text="基于 Enzoo404/gravitybox（MIT）移植至 Windows 10/11 并增强默认中文汉化与无感启动；由 Rss3208/gravitybox-win 持续维护。"
+                                   Style="{StaticResource SecondaryLabelStyle}"
+                                   TextWrapping="Wrap"
+                                   Margin="0,3,0,0" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Content="本项目仓库" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,8,0" Command="{Binding OpenRepositoryPageCommand}" />
+                        <Button Content="上游 macOS 原版" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding OpenUpstreamPageCommand}" />
+                    </StackPanel>
+                </Grid>
             </Border>
         </StackPanel>
     </ScrollViewer>

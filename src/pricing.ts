@@ -72,9 +72,11 @@ export interface ApiPricingInterval {
 export type ApiPricingEntry = ApiPricing | ApiPricingInterval[];
 
 export const DEFAULT_PRICING_FEED_URLS = [
+  'https://raw.githubusercontent.com/Rss3208/gravitybox-win/main/assets/pricing-feed.json',
+  'https://cdn.jsdelivr.net/gh/Rss3208/gravitybox-win@main/assets/pricing-feed.json',
+  'https://api.github.com/repos/Rss3208/gravitybox-win/contents/assets/pricing-feed.json?ref=main',
   'https://raw.githubusercontent.com/Enzoo404/gravitybox/main/assets/pricing-feed.json',
   'https://cdn.jsdelivr.net/gh/Enzoo404/gravitybox@main/assets/pricing-feed.json',
-  'https://api.github.com/repos/Enzoo404/gravitybox/contents/assets/pricing-feed.json?ref=main',
 ];
 
 export const PRICING_METADATA = {
