@@ -806,7 +806,17 @@
     "maintenance.popover.snapshot.footer": "Backed by a transactional recovery manifest for one-click restore in place.",
     "maintenance.popover.files_count": "{count} file(s)",
     "maintenance.popover.more_items": "{count} other minor cache item(s)",
-    "maintenance.popover.total_summary": "{items} item(s) · {files} file(s) total"
+    "maintenance.popover.total_summary": "{items} item(s) · {files} file(s) total",
+    "about.reveal_data_win": "Show in File Explorer",
+    "maintenance.simple.btn_show_explorer": "Show in File Explorer",
+    "settings.login.subtitle_win": "Automatically stay in the system tray when signing in to Windows",
+    "settings.shortcut.title": "Seamless Launch Localization (Shortcut Debug Port)",
+    "settings.shortcut.subtitle": "Append debug port to Desktop, Start Menu, and Taskbar Antigravity shortcuts with automatic backup",
+    "settings.shortcut.btn_manage": "Manage Shortcuts…",
+    "settings.shortcut.btn_apply": "Enable Seamless Launch",
+    "settings.shortcut.btn_restore": "Restore Original Shortcuts",
+    "settings.shortcut.guide_title": "Enable Seamless Launch Localization?",
+    "settings.shortcut.guide_body": "Antigravity 2.33.0+ disables the remote debugging port by default. With your permission, GravityBox will back up your Desktop/Start Menu shortcuts and append --remote-debugging-port=0 so launching Antigravity normally connects localization and HUD automatically. You can restore the original shortcuts in one click anytime."
   },
   "backend": {
     "status.starting": "Connecting to local service…",

@@ -672,17 +672,13 @@ async function run() {
       ? configuredAppLanguage
       : typeof runtimePrefs?.language === 'string' && runtimePrefs.language.trim()
       ? runtimePrefs.language
-      : effectiveInitialSystemLocales || process.env.GRAVITYBOX_SYSTEM_LOCALES
-      ? 'system'
       : undefined);
-  const initialLang =
-    preferredConfiguredLanguage !== undefined || runtimePrefs?.translationEnabled !== undefined
-      ? resolveInitialRuntimeLanguage({
-          configuredLanguage: preferredConfiguredLanguage,
-          legacyTranslationEnabled: runtimePrefs?.translationEnabled,
-          systemLocales: effectiveInitialSystemLocales,
-        })
-      : { configuredLanguage: 'zh-Hans', resolvedLocale: 'zh-Hans' };
+  const initialLang = resolveInitialRuntimeLanguage({
+    configuredLanguage: preferredConfiguredLanguage,
+    legacyTranslationEnabled: runtimePrefs?.translationEnabled,
+    systemLocales: effectiveInitialSystemLocales,
+    defaultFreshLanguage: 'zh-Hans',
+  });
   setActiveLocale(initialLang.resolvedLocale);
   const initialDictInfo = await resolveDictionaryForLocale(baseDir, initialLang.resolvedLocale);
   const store = new DictionaryStore(initialDictInfo.baseDir, userDir);

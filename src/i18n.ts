@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { resolveDefaultWinHelperPath } from './platform/win-helper-client.js';
 
 export type LocaleMeta = {
   code: string;
@@ -158,6 +159,30 @@ export function detectSystemLocales(): string[] {
     } catch {
       // ignore defaults read failure and fall back to POSIX / Intl
     }
+  } else if (process.platform === 'win32') {
+    try {
+      const helperExe = resolveDefaultWinHelperPath();
+      if (helperExe) {
+        const rawOut = execFileSync(helperExe, [], {
+          input: '{"id":"1","method":"ui_languages","params":{}}\n',
+          encoding: 'utf8',
+          timeout: 1500,
+          stdio: ['pipe', 'pipe', 'ignore'],
+          windowsHide: true,
+        });
+        const firstLine = rawOut.split(/\r?\n/).find(l => l.trim().startsWith('{'));
+        if (firstLine) {
+          const parsed = JSON.parse(firstLine) as { locales?: unknown };
+          if (Array.isArray(parsed?.locales)) {
+            for (const loc of parsed.locales) {
+              if (typeof loc === 'string') pushUnique(loc);
+            }
+          }
+        }
+      }
+    } catch {
+      // Fall back to POSIX / Intl below
+    }
   }
 
   const envLang = process.env.LC_ALL || process.env.LC_MESSAGES || process.env.LANG;
@@ -203,6 +228,7 @@ export function resolveInitialRuntimeLanguage(options: {
   configuredLanguage?: unknown;
   legacyTranslationEnabled?: unknown;
   systemLocales?: string[];
+  defaultFreshLanguage?: string;
   packs?: Map<string, LocalePack>;
 }): { configuredLanguage: string; resolvedLocale: string } {
   const packs = options.packs ?? builtinPacks;
@@ -226,6 +252,16 @@ export function resolveInitialRuntimeLanguage(options: {
   if (options.legacyTranslationEnabled === true) {
     const zhLocale = normalizeLocale('zh-Hans', packs) ?? DEFAULT_LEGACY_LOCALE;
     return { configuredLanguage: zhLocale, resolvedLocale: zhLocale };
+  }
+
+  if (typeof options.defaultFreshLanguage === 'string' && options.defaultFreshLanguage.trim()) {
+    const freshRaw = options.defaultFreshLanguage.trim();
+    if (freshRaw.toLowerCase() !== 'system') {
+      const freshNorm = normalizeLocale(freshRaw, packs);
+      if (freshNorm) {
+        return { configuredLanguage: freshNorm, resolvedLocale: freshNorm };
+      }
+    }
   }
 
   const sys = options.systemLocales ?? detectSystemLocales();

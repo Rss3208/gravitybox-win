@@ -19,6 +19,7 @@ import {
   setActiveLocale,
   translate,
 } from '../dist/i18n.js';
+import { getPlatform } from '../dist/platform/index.js';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const i18nDir = join(root, 'assets', 'i18n');
@@ -210,15 +211,19 @@ test('macOS 无 LANG 环境或遵循 AppleLanguages 时 system 语言解析与�
 
   // 验证真实后端进程在无 LANG 环境下通过 --locale system + --system-locales 与 language_set 正确启用中文翻译
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-  const rpc = (directory, payload) =>
-    new Promise((resolve, reject) => {
-      const socket = createConnection(join(directory, 'control.sock'));
+  const rpc = async (directory, payload) => {
+    const platform = getPlatform();
+    const endpoint = platform.getIpcEndpoint(directory);
+    const authToken = await platform.readIpcAuthToken?.(directory);
+    const body = authToken && !('authToken' in payload) ? { ...payload, authToken } : payload;
+    return new Promise((resolve, reject) => {
+      const socket = createConnection(endpoint);
       let value = '';
       socket.setTimeout(8000, () => {
         socket.destroy();
         reject(new Error('IPC 超时'));
       });
-      socket.on('connect', () => socket.write(JSON.stringify(payload) + '\n'));
+      socket.on('connect', () => socket.write(JSON.stringify(body) + '\n'));
       socket.on('error', reject);
       socket.on('data', (chunk) => {
         value += chunk;
@@ -228,8 +233,9 @@ test('macOS 无 LANG 环境或遵循 AppleLanguages 时 system 语言解析与�
         }
       });
     });
+  };
 
-  const directory = await mkdtemp('/tmp/gb-i18n-ipc-');
+  const directory = await mkdtemp(join(tmpdir(), 'gb-i18n-ipc-'));
   await mkdir(join(directory, '词典'), { recursive: true });
   const env = { ...process.env, GRAVITYBOX_PROBE_LS: 'false' };
   delete env.LANG;

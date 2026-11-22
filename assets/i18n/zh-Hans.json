@@ -806,7 +806,17 @@
     "maintenance.popover.snapshot.footer": "快照内含「恢复清单.json」事务记录，点击「撤回上次清理」即可原位还原。",
     "maintenance.popover.files_count": "{count} 个文件",
     "maintenance.popover.more_items": "其余 {count} 类细微缓存项",
-    "maintenance.popover.total_summary": "合计 {items} 项 · {files} 个文件"
+    "maintenance.popover.total_summary": "合计 {items} 项 · {files} 个文件",
+    "about.reveal_data_win": "在文件资源管理器中显示",
+    "maintenance.simple.btn_show_explorer": "在文件资源管理器中查看",
+    "settings.login.subtitle_win": "登录 Windows 时自动在系统托盘驻留",
+    "settings.shortcut.title": "无感启动汉化（快捷方式调试端口）",
+    "settings.shortcut.subtitle": "为桌面、开始菜单与任务栏的 Antigravity 快捷方式自动附加调试端口并备份原始参数",
+    "settings.shortcut.btn_manage": "管理快捷方式…",
+    "settings.shortcut.btn_apply": "一键开启无感启动",
+    "settings.shortcut.btn_restore": "还原原始快捷方式",
+    "settings.shortcut.guide_title": "推荐开启「无感启动汉化」",
+    "settings.shortcut.guide_body": "Antigravity 2.33.0+ 默认关闭远程调试端口。授权后 GravityBox 将先备份您的桌面/开始菜单快捷方式，再附加 --remote-debugging-port=0，以后直接双击官方图标即可自动汉化与显示 HUD，随时可一键无损还原。"
   },
   "backend": {
     "status.starting": "正在连接本机服务…",
