@@ -73,7 +73,7 @@ jobs:
 
       - name: Checkout Tagged Code
         if: steps.precheck.outputs.skip != 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: refs/tags/${{ inputs.tag || github.ref_name }}
 
