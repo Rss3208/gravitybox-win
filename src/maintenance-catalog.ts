@@ -1,7 +1,8 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { join, relative, resolve, sep } from 'node:path';
+import { join } from 'node:path';
 import { bt } from './i18n.js';
+import { getPlatform } from './platform/index.js';
 
 export type CacheCategory = 'safe' | 'stateful';
 export type CacheSection = 'runtime' | 'history';
@@ -242,6 +243,13 @@ export async function readProcessCommands(): Promise<string[] | null> {
   }
   const task = (async (): Promise<string[] | null> => {
     try {
+      const platform = getPlatform();
+      if (platform.id === 'win32') {
+        const procs = await platform.listProcesses();
+        const commands = procs.map(p => (p.commandLine || p.executablePath).trim()).filter(Boolean);
+        cachedProcessCommands = { at: Date.now(), commands };
+        return commands;
+      }
       const { stdout } = await execFileAsync('/bin/ps', ['-axo', 'command='], { timeout: 3000 });
       const commands = stdout.split('\n').map(line => line.trim()).filter(Boolean);
       cachedProcessCommands = { at: Date.now(), commands };
@@ -262,20 +270,45 @@ export async function readProcessCommands(): Promise<string[] | null> {
 }
 
 export function hasAntigravityCommand(commands: string[], appPath = '/Applications/Antigravity.app'): boolean {
-  const appRoots = Array.from(new Set([appPath, '/Applications/Antigravity.app']));
+  const platform = getPlatform();
+  const appRoots = Array.from(
+    new Set([appPath, '/Applications/Antigravity.app', ...(platform.id === 'win32' ? platform.getDefaultPaths().defaultAppCandidates : [])])
+  ).filter(Boolean);
   const macOsPrefixes = appRoots.map(p => p + '/Contents/MacOS/');
   const frameworkPrefixes = appRoots.map(p => p + '/Contents/Frameworks/');
   const lsPrefixes = appRoots.map(p => p + '/Contents/Resources/bin/language_server');
-  return commands.some(trimmed =>
-    macOsPrefixes.some(prefix => trimmed.startsWith(prefix)) ||
-    frameworkPrefixes.some(prefix => trimmed.startsWith(prefix)) ||
-    lsPrefixes.some(prefix => trimmed.startsWith(prefix) || trimmed.includes(prefix))
-  );
+  const winNormRoots = appRoots
+    .filter(p => !p.endsWith('.app'))
+    .map(p => p.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase());
+
+  return commands.some(trimmed => {
+    if (
+      macOsPrefixes.some(prefix => trimmed.startsWith(prefix)) ||
+      frameworkPrefixes.some(prefix => trimmed.startsWith(prefix)) ||
+      lsPrefixes.some(prefix => trimmed.startsWith(prefix) || trimmed.includes(prefix))
+    ) {
+      return true;
+    }
+    if (winNormRoots.length > 0) {
+      const normCmd = trimmed.replace(/\\/g, '/').toLowerCase();
+      return winNormRoots.some(
+        root =>
+          normCmd.includes(`${root}/antigravity.exe`) ||
+          normCmd.includes(`${root}/resources/bin/language_server`)
+      );
+    }
+    return false;
+  });
 }
 
 export function hasBrowserProfileCommand(commands: string[], browserProfileDir: string): boolean {
   if (!browserProfileDir) return false;
-  return commands.some(trimmed => trimmed.includes(browserProfileDir) && !trimmed.includes('/bin/ps'));
+  const normTarget = browserProfileDir.replace(/\\/g, '/').toLowerCase();
+  return commands.some(trimmed => {
+    if (trimmed.includes('/bin/ps')) return false;
+    if (trimmed.includes(browserProfileDir)) return true;
+    return trimmed.replace(/\\/g, '/').toLowerCase().includes(normTarget);
+  });
 }
 
 export async function antigravityRunning(appPath = '/Applications/Antigravity.app') {
@@ -333,7 +366,6 @@ export interface ConversationIndexSnapshot {
 }
 
 export function isStrictSubpath(parentDir: string, candidatePath: string): boolean {
-  const rel = relative(resolve(parentDir), resolve(candidatePath));
-  return Boolean(rel && !rel.startsWith('..') && !rel.includes(`..${sep}`) && rel !== '.');
+  return getPlatform().isStrictSubpath(parentDir, candidatePath);
 }
 

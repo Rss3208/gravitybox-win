@@ -1,9 +1,9 @@
 import { lstat, readdir, mkdir, readFile } from 'node:fs/promises';
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
-import { homedir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { ReentrantMutex } from './mutex.js';
 import { executeMoves, reconcileMoves, readMaintenanceManifest, type JournalMove } from './maintenance-journal.js';
+import { getPlatform } from './platform/index.js';
 import {
   ALL_ALLOWED_CACHE_NAMES,
   CACHE_NAMES,
@@ -45,7 +45,7 @@ export * from './maintenance-catalog.js';
 
 function isTrashPermissionError(error: unknown): boolean {
   const code = (error as NodeJS.ErrnoException | undefined)?.code;
-  return code === 'EPERM' || code === 'EACCES';
+  return code === 'EPERM' || code === 'EACCES' || code === 'ENOTDIR' || code === 'EEXIST';
 }
 
 function formatClearedBytesLabel(bytes: number): string {
@@ -78,7 +78,7 @@ export class CacheMaintenance {
 
   constructor(
     private profile: string,
-    private trash = join(homedir(), '.Trash'),
+    private trash = getPlatform().getDefaultPaths().defaultTrashDir,
     private running = antigravityRunning,
     private options: CacheMaintenanceOptions = {},
   ) {
@@ -104,7 +104,11 @@ export class CacheMaintenance {
     if (this.options.stateDir) {
       return join(resolve(this.options.stateDir), 'maintenance-trash');
     }
-    return join(homedir(), 'Library', 'Caches', 'GravityBox', 'maintenance-trash');
+    const platformPaths = getPlatform().getDefaultPaths();
+    if (getPlatform().id === 'win32') {
+      return resolve(platformPaths.defaultTrashDir);
+    }
+    return join(platformPaths.cacheDir, 'maintenance-trash');
   }
 
   private candidateTrashDirs(): string[] {

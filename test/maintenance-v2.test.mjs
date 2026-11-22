@@ -3,13 +3,19 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, rm, lstat, utimes, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, basename } from 'node:path';
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
+import { DatabaseSync } from 'node:sqlite';
 import { CacheMaintenance } from '../dist/maintenance.js';
 import { UsageStatsManager } from '../dist/usage.js';
 import { ProtobufWriter } from '../dist/protobuf.js';
 
-const execFileAsync = promisify(execFile);
+function runSqliteScript(dbPath, sql) {
+  const db = new DatabaseSync(dbPath);
+  try {
+    db.exec(sql);
+  } finally {
+    db.close();
+  }
+}
 
 async function setAgeDays(targetPath, daysAgo) {
   const sec = (Date.now() - daysAgo * 86_400_000) / 1000;
@@ -35,7 +41,7 @@ async function createUsageDb(dbPath, { model = 'gemini-3.8-flash', input = 1500,
     CREATE TABLE gen_metadata (idx INTEGER PRIMARY KEY, data BLOB);
     INSERT INTO gen_metadata (idx, data) VALUES (1, X'${hexBlob}');
   `;
-  await execFileAsync('/usr/bin/sqlite3', [dbPath, sql]);
+  runSqliteScript(dbPath, sql);
 }
 
 async function createSummariesDb(dbPath, summaries, archivedIds = []) {
@@ -51,7 +57,7 @@ async function createSummariesDb(dbPath, summaries, archivedIds = []) {
   for (const cid of archivedIds) {
     lines.push(`INSERT INTO conversations_fts (conversation_id, title, archived) VALUES ('${cid}', 'archived chat', 1);`);
   }
-  await execFileAsync('/usr/bin/sqlite3', [dbPath, lines.join('\n')]);
+  runSqliteScript(dbPath, lines.join('\n'));
 }
 
 test('v2 存储治理: PartitionsCache 与 AgentBrowserCache 精确剥离无状态缓存，保护登录态且绝不触碰 Insiders', async () => {
@@ -436,8 +442,13 @@ test('v2 存储治理: macOS TCC ~/.Trash 受限(EPERM/EACCES)时退出重扫、
     await writeFile(join(profile, 'Code Cache', 'b.bin'), Buffer.alloc(1024, 9));
     await writeFile(join(stateDir, 'config.json'), '{"schema":2}');
 
-    // 模拟 macOS TCC 对 ~/.Trash 拒绝 scandir / mkdir / rename (0o000 -> EACCES/EPERM)
-    await chmod(blockedTrash, 0o000);
+    // 模拟 macOS TCC 对 ~/.Trash 拒绝 scandir / mkdir / rename (0o000 -> EACCES/EPERM；Windows 下以阻塞文件模拟不可达回收目录)
+    if (process.platform === 'win32') {
+      await rm(blockedTrash, { recursive: true, force: true });
+      await writeFile(blockedTrash, 'blocked');
+    } else {
+      await chmod(blockedTrash, 0o000);
+    }
 
     let appIsRunning = true;
     const m = new CacheMaintenance(profile, blockedTrash, async () => appIsRunning, {
@@ -515,7 +526,12 @@ test('v3 三卡片双开关: scan 双桶聚合、smartClear 免令牌清理、�
   const subId = '20202020-2020-4020-8020-202020202020';
 
   try {
-    await chmod(blockedTrash, 0o000);
+    if (process.platform === 'win32') {
+      await rm(blockedTrash, { recursive: true, force: true });
+      await writeFile(blockedTrash, 'blocked');
+    } else {
+      await chmod(blockedTrash, 0o000);
+    }
     await createSummariesDb(join(agentDir, 'conversation_summaries.db'), [
       { id: rootId, parentId: '', status: 'CASCADE_RUN_STATUS_IDLE' },
       { id: subId, parentId: rootId, status: 'CASCADE_RUN_STATUS_IDLE' },
@@ -536,7 +552,7 @@ test('v3 三卡片双开关: scan 双桶聚合、smartClear 免令牌清理、�
     // 准备运行缓存：Cache 正常，GPUCache 为符号链接（应静默跳过而非阻断整桶），AgentBrowserCache 处于繁忙态
     await mkdir(join(profile, 'Cache'), { recursive: true });
     await writeFile(join(profile, 'Cache', 'chunk.bin'), Buffer.alloc(3072, 1));
-    await symlink(extTarget, join(profile, 'GPUCache'));
+    await symlink(extTarget, join(profile, 'GPUCache'), process.platform === 'win32' ? 'junction' : 'dir');
     const bpCache = join(agentDir, 'browser_profile', 'Default', 'Cache');
     await mkdir(bpCache, { recursive: true });
     await writeFile(join(bpCache, 'web.bin'), Buffer.alloc(1024, 2));
