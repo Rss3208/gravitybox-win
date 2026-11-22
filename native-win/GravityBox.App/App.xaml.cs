@@ -17,6 +17,7 @@ public partial class App : System.Windows.Application
     private ThemeService? _themeService;
     private BackendBridge? _bridge;
     private LifecycleSyncService? _lifecycle;
+    private AppUpdateManager? _updateManager;
     private TrayIconService? _trayIcon;
     private TrayFlyoutWindow? _flyoutWindow;
     private MainWindow? _mainWindow;
@@ -55,10 +56,38 @@ public partial class App : System.Windows.Application
         };
         _lifecycle = new LifecycleSyncService();
         _lifecycle.AutoExitRequested += () => Dispatcher.Invoke(() => _ = ShutdownAppAsync());
+        _updateManager = new AppUpdateManager("1.1.3");
+
+        var overviewVm = new OverviewViewModel(_bridge, config, l10n, _lifecycle);
+        var accountsVm = new AccountsViewModel(_bridge, config, l10n, _lifecycle);
+        var usageVm = new UsageViewModel(_bridge, config, l10n);
+        var settingsVm = new SettingsViewModel(_bridge, config, l10n, _lifecycle);
+        var aboutVm = new AboutViewModel(config, l10n, _updateManager);
 
         var flyoutVm = new TrayFlyoutViewModel(_bridge, config, l10n);
-        _shellVm = new MainShellViewModel(_bridge, config, l10n, _lifecycle);
+        _shellVm = new MainShellViewModel(
+            _bridge,
+            config,
+            l10n,
+            _lifecycle,
+            new CommunityToolkit.Mvvm.ComponentModel.ObservableObject[]
+            {
+                overviewVm,
+                accountsVm,
+                usageVm,
+                settingsVm,
+                aboutVm,
+            });
         _shellVm.ExitApplicationRequested += () => _ = ShutdownAppAsync();
+        _shellVm.RefreshCurrentPageRequested += () =>
+        {
+            switch (_shellVm.SelectedPageIndex)
+            {
+                case 0: _ = overviewVm.RefreshAsync(force: true); break;
+                case 1: _ = accountsVm.RefreshAsync(); break;
+                case 2: _ = usageVm.RefreshAsync(); break;
+            }
+        };
 
         _mainWindow = new MainWindow(_shellVm, _themeService);
         _flyoutWindow = new TrayFlyoutWindow(flyoutVm);
@@ -121,6 +150,7 @@ public partial class App : System.Windows.Application
         _trayIcon?.Dispose();
         _shellVm?.Dispose();
         _lifecycle?.Dispose();
+        _updateManager?.Dispose();
         _themeService?.Dispose();
         if (_bridge != null)
         {

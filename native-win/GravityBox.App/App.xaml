@@ -1,6 +1,8 @@
 <Application x:Class="GravityBox.App.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:GravityBox.App.ViewModels"
+             xmlns:pages="clr-namespace:GravityBox.App.Views.Pages"
              ShutdownMode="OnExplicitShutdown">
     <Application.Resources>
         <ResourceDictionary>
@@ -8,6 +10,24 @@
                 <ResourceDictionary Source="pack://application:,,,/GravityBox;component/Theme/DesignTokens.Light.xaml" />
                 <ResourceDictionary Source="pack://application:,,,/GravityBox;component/Theme/Controls.xaml" />
             </ResourceDictionary.MergedDictionaries>
+
+            <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+
+            <DataTemplate DataType="{x:Type vm:OverviewViewModel}">
+                <pages:OverviewPage />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:AccountsViewModel}">
+                <pages:AccountsPage />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:UsageViewModel}">
+                <pages:UsagePage />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:SettingsViewModel}">
+                <pages:SettingsPage />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:AboutViewModel}">
+                <pages:AboutPage />
+            </DataTemplate>
         </ResourceDictionary>
     </Application.Resources>
 </Application>
