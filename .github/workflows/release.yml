@@ -83,7 +83,7 @@ jobs:
           node-version: 22
           cache: 'npm'
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         if: steps.precheck.outputs.skip != 'true'
         with:
           dotnet-version: '8.0.x'
