@@ -114,9 +114,16 @@ public sealed partial class TrayFlyoutViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public void SelectTab(int index)
+    public void SelectTab(object? indexParam)
     {
-        SelectedTab = Math.Clamp(index, 0, 2);
+        if (indexParam is int i)
+        {
+            SelectedTab = Math.Clamp(i, 0, 2);
+        }
+        else if (int.TryParse(indexParam?.ToString(), out int parsed))
+        {
+            SelectedTab = Math.Clamp(parsed, 0, 2);
+        }
     }
 
     [RelayCommand]

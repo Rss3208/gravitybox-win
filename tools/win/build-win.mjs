@@ -83,6 +83,11 @@ export async function buildWindowsStage({ selfContained = true } = {}) {
     }
   }
 
+  // Node backend under core/dist/ resolves ../assets, ../dict, and ../package.json relative to core/
+  await cp(join(root, 'package.json'), join(stageDir, 'core', 'package.json'));
+  await cp(join(stageDir, 'dict'), join(stageDir, 'core', 'dict'), { recursive: true });
+  await cp(stageAssets, join(stageDir, 'core', 'assets'), { recursive: true });
+
   for (const doc of ['LICENSE', 'THIRD_PARTY_NOTICES.md']) {
     const srcDoc = join(root, doc);
     if (existsSync(srcDoc)) {

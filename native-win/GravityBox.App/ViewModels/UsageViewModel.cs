@@ -100,9 +100,16 @@ public sealed partial class UsageViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public void SelectPeriod(int index)
+    public void SelectPeriod(object? indexParam)
     {
-        SelectedPeriodIndex = Math.Clamp(index, 0, 3);
+        if (indexParam is int i)
+        {
+            SelectedPeriodIndex = Math.Clamp(i, 0, 3);
+        }
+        else if (int.TryParse(indexParam?.ToString(), out int parsed))
+        {
+            SelectedPeriodIndex = Math.Clamp(parsed, 0, 3);
+        }
     }
 
     [RelayCommand]

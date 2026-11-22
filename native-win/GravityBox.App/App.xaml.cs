@@ -27,6 +27,22 @@ public partial class App : System.Windows.Application
     {
         base.OnStartup(e);
 
+        DispatcherUnhandledException += (_, args) =>
+        {
+            try
+            {
+                string logDir = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "GravityBox",
+                    "logs");
+                Directory.CreateDirectory(logDir);
+                File.AppendAllText(
+                    Path.Combine(logDir, "app-crash.log"),
+                    $"[{DateTime.Now:O}] {args.Exception}\n");
+            }
+            catch { }
+        };
+
         _singleInstanceMutex = new Mutex(initiallyOwned: true, @"Local\GravityBox-SingleInstance", out bool createdNew);
         if (!createdNew)
         {

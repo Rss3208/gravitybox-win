@@ -127,9 +127,16 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    public void NavigateTo(int index)
+    public void NavigateTo(object? indexParam)
     {
-        SelectedPageIndex = Math.Clamp(index, 0, 4);
+        if (indexParam is int i)
+        {
+            SelectedPageIndex = Math.Clamp(i, 0, 4);
+        }
+        else if (int.TryParse(indexParam?.ToString(), out int parsed))
+        {
+            SelectedPageIndex = Math.Clamp(parsed, 0, 4);
+        }
     }
 
     [RelayCommand]
