@@ -84,7 +84,15 @@ public partial class QuotaMeterRow : UserControl
     private void UpdateFillWidth()
     {
         double clamped = Math.Clamp(Percentage, 0.0, 100.0) / 100.0;
-        FillBar.Width = Math.Max(0, ActualWidth * clamped);
-        FillBar.Background = BarBrush ?? (Percentage >= 50.0 ? HighBrush : Percentage >= 20.0 ? MidBrush : LowBrush);
+        double targetWidth = Math.Max(0, ActualWidth * clamped);
+        if (double.IsNaN(FillBar.Width) || Math.Abs(FillBar.Width - targetWidth) > 0.25)
+        {
+            FillBar.Width = targetWidth;
+        }
+        var targetBrush = BarBrush ?? (Percentage >= 50.0 ? HighBrush : Percentage >= 20.0 ? MidBrush : LowBrush);
+        if (!ReferenceEquals(FillBar.Background, targetBrush))
+        {
+            FillBar.Background = targetBrush;
+        }
     }
 }

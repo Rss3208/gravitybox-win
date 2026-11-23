@@ -126,9 +126,8 @@ public partial class TrayFlyoutWindow : Window
             screen.WorkingArea.Height / dpiScale);
         var anchorDip = new Rect(cursor.X / dpiScale - 12, cursor.Y / dpiScale - 12, 24, 24);
 
-        UpdateLayout();
         double w = ActualWidth > 0 ? ActualWidth : Width;
-        double h = ActualHeight > 0 ? ActualHeight : 420;
+        double h = ActualHeight > 0 ? ActualHeight : Height;
         var pos = TrayFlyoutPositioner.CalculatePosition(monitorDip, workDip, anchorDip, w, h);
 
         Left = pos.X;

@@ -101,6 +101,32 @@ public sealed class TrayFlyoutTests : IDisposable
                         },
                     },
                 },
+                "account_switch_preflight" => new JsonObject
+                {
+                    ["ok"] = true,
+                    ["hasRunningTask"] = false,
+                    ["safe"] = true,
+                },
+                "usage_summary" => new JsonObject
+                {
+                    ["ok"] = true,
+                    ["summary"] = new JsonObject
+                    {
+                        ["totalTokens"] = 12345,
+                        ["promptTokens"] = 2000,
+                        ["cachedTokens"] = 8000,
+                        ["requestCount"] = 17,
+                        ["estimatedUsd"] = 0.42,
+                    },
+                    ["byModel"] = new JsonArray
+                    {
+                        new JsonObject { ["model"] = "gemini-3.8-pro", ["totalTokens"] = 12345, ["requestCount"] = 17, ["estimatedUsd"] = 0.42, ["priced"] = true },
+                    },
+                    ["todayHourly"] = new JsonArray
+                    {
+                        new JsonObject { ["hour"] = "2026-11-23 14:00", ["total_tokens"] = 12345, ["request_count"] = 17 },
+                    },
+                },
                 _ => new JsonObject { ["ok"] = true },
             };
             return Task.FromResult(reply);
@@ -127,6 +153,16 @@ public sealed class TrayFlyoutTests : IDisposable
 
         vm.SelectTab(2);
         Assert.Equal(2, config.Value.MenuSelectedTab);
+
+        // Verify account switch never deadlocks IsLoading
+        await vm.SwitchAccountAsync("acc-1");
+        Assert.False(vm.IsLoading);
+        Assert.Null(vm.ErrorBanner);
+
+        // Verify live status synchronization
+        vm.SyncLiveStatus("connected", "已连接");
+        Assert.False(vm.DebugPortMissing);
+        Assert.Equal("已连接", vm.ConnectionStatusText);
     }
 
     [Fact]

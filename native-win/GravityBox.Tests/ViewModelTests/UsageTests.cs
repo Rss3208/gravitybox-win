@@ -139,8 +139,9 @@ public sealed class UsageTests : IDisposable
         Assert.Equal(2, vm.ModelRows.Count);
         Assert.Equal("gemini-3.8-pro", vm.ModelRows[0].ModelName);
         Assert.Equal(2, vm.DonutSlices.Count);
-        Assert.Equal(2, vm.TrendPoints.Count);
-        Assert.Equal("09时", vm.TrendPoints[0].Label);
+        Assert.Equal(24, vm.TrendPoints.Count);
+        Assert.Equal("09时", vm.TrendPoints[9].Label);
+        Assert.Equal(120000, vm.TrendPoints[9].Value);
 
         vm.SelectPeriod(1);
         await Task.Delay(50);

@@ -114,6 +114,11 @@ public partial class App : System.Windows.Application
                 aboutVm,
             });
         _shellVm.ExitApplicationRequested += () => _ = ShutdownAppAsync();
+        _shellVm.StatusChanged += (mode, message) =>
+        {
+            overviewVm.SyncLiveStatus(mode);
+            flyoutVm.SyncLiveStatus(mode, message);
+        };
         _shellVm.RefreshCurrentPageRequested += () =>
         {
             switch (_shellVm.SelectedPageIndex)
@@ -130,20 +135,28 @@ public partial class App : System.Windows.Application
         _flyoutWindow = new TrayFlyoutWindow(flyoutVm);
 
         flyoutVm.OpenMainWindowRequested += ShowMainWindow;
+        flyoutVm.OpenMainPageRequested += pageIdx =>
+        {
+            _shellVm.NavigateTo(pageIdx);
+            ShowMainWindow();
+        };
         flyoutVm.OpenAntigravityRequested += () => _ = _shellVm.OpenAntigravityAsync();
-        flyoutVm.SafeRelaunchRequested += () => _ = _shellVm.OpenAntigravityAsync();
+        flyoutVm.SafeRelaunchRequested += () => _ = overviewVm.SafeRelaunchAsync();
 
         _trayIcon = new TrayIconService(l10n, iconPath);
-        _trayIcon.LeftClickRequested += () => _flyoutWindow.ShowNearCursor();
-        _trayIcon.OpenMainWindowRequested += ShowMainWindow;
-        _trayIcon.OpenAntigravityRequested += () => _ = _shellVm.OpenAntigravityAsync();
+        _trayIcon.LeftClickRequested += () => Dispatcher.InvokeAsync(() => _flyoutWindow.ShowNearCursor());
+        _trayIcon.OpenMainWindowRequested += () => Dispatcher.InvokeAsync(ShowMainWindow);
+        _trayIcon.OpenAntigravityRequested += () => Dispatcher.InvokeAsync(() => _ = _shellVm.OpenAntigravityAsync());
         _trayIcon.LanguageChangeRequested += lang =>
         {
-            config.Update(c => c.AppLanguage = lang);
-            l10n.SetLanguage(lang);
-            _ = _bridge.SendAsync("language_set", new System.Text.Json.Nodes.JsonObject { ["language"] = lang });
+            Dispatcher.InvokeAsync(() =>
+            {
+                config.Update(c => c.AppLanguage = lang);
+                l10n.SetLanguage(lang);
+                _ = _bridge.SendAsync("language_set", new System.Text.Json.Nodes.JsonObject { ["language"] = lang });
+            });
         };
-        _trayIcon.ExitRequested += () => _ = ShutdownAppAsync();
+        _trayIcon.ExitRequested += () => Dispatcher.InvokeAsync(() => _ = ShutdownAppAsync());
 
         try
         {

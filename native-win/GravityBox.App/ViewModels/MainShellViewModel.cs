@@ -71,6 +71,7 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
 
     public event Action? ExitApplicationRequested;
     public event Action? RefreshCurrentPageRequested;
+    public event Action<string, string>? StatusChanged;
 
     public MainShellViewModel(
         IBackendBridge bridge,
@@ -203,6 +204,7 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
                 {
                     StatusMode = nextMode;
                     StatusMessage = nextMessage;
+                    StatusChanged?.Invoke(nextMode, nextMessage);
                 }
                 if (nextRev.HasValue)
                 {

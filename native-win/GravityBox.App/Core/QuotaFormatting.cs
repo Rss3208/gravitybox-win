@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Text.Json.Nodes;
 
 namespace GravityBox.App.Core;
@@ -79,6 +80,101 @@ public static class QuotaFormatting
         if (value >= 100_000_000L) return $"{value / 100_000_000.0:0.00} 亿";
         if (value >= 10_000L) return $"{value / 10_000.0:0.0} 万";
         return value.ToString("N0", CultureInfo.InvariantCulture);
+    }
+
+    public static int? ParseHourBucket(JsonObject obj)
+    {
+        var hourNode = obj["hour"];
+        if (hourNode == null) return null;
+
+        long numeric = hourNode.AsInt64(-1);
+        if (numeric is >= 0 and <= 23)
+        {
+            return (int)numeric;
+        }
+
+        string? raw = hourNode.AsString()?.Trim();
+        if (string.IsNullOrEmpty(raw)) return null;
+
+        if (int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out int direct) && direct is >= 0 and <= 23)
+        {
+            return direct;
+        }
+
+        // Matches "2026-11-23 14:00" or "2026-11-23T14:00" or "14:00"
+        int spaceOrT = Math.Max(raw.LastIndexOf(' '), raw.LastIndexOf('T'));
+        string timePart = spaceOrT >= 0 ? raw[(spaceOrT + 1)..] : raw;
+        int colon = timePart.IndexOf(':');
+        string hrPart = colon > 0 ? timePart[..colon] : timePart;
+        if (int.TryParse(hrPart, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsed) && parsed is >= 0 and <= 23)
+        {
+            return parsed;
+        }
+        return null;
+    }
+
+    public static List<GravityBox.App.Controls.TrendPoint> BuildHourlyTrendPoints(
+        JsonArray? hourlyArray,
+        bool padFull24Hours = true,
+        bool useRequestMetric = false)
+    {
+        var pts = new List<GravityBox.App.Controls.TrendPoint>();
+        if (hourlyArray == null || hourlyArray.Count == 0)
+        {
+            return pts;
+        }
+
+        var byHour = new Dictionary<int, (double Val, long Reqs, long Tokens)>();
+        bool allParsedHours = true;
+
+        foreach (var hNode in hourlyArray)
+        {
+            var obj = hNode?.AsObject();
+            if (obj == null) continue;
+            long tok = obj["total_tokens"].AsInt64(obj["totalTokens"].AsInt64(obj["tokens"].AsInt64(0)));
+            long reqs = obj["request_count"].AsInt64(obj["requestCount"].AsInt64(obj["requests"].AsInt64(0)));
+            double val = useRequestMetric ? reqs : tok;
+            int? hr = ParseHourBucket(obj);
+            if (hr.HasValue)
+            {
+                if (byHour.TryGetValue(hr.Value, out var existing))
+                {
+                    byHour[hr.Value] = (existing.Val + val, existing.Reqs + reqs, existing.Tokens + tok);
+                }
+                else
+                {
+                    byHour[hr.Value] = (val, reqs, tok);
+                }
+            }
+            else
+            {
+                allParsedHours = false;
+                string label = obj["label"].AsString() ?? obj["hour"].AsString() ?? string.Empty;
+                string tip = useRequestMetric
+                    ? $"{label} · {reqs} 次请求"
+                    : $"{label} · {FormatCompactCount(tok)} Token ({reqs} 次)";
+                pts.Add(new GravityBox.App.Controls.TrendPoint(label, val, tip));
+            }
+        }
+
+        if (allParsedHours && byHour.Count > 0)
+        {
+            pts.Clear();
+            int maxHour = Math.Max(DateTime.Now.Hour, byHour.Keys.Max());
+            int endHour = padFull24Hours ? 23 : maxHour;
+            int startHour = 0;
+            for (int h = startHour; h <= endHour; h++)
+            {
+                string label = $"{h:00}时";
+                byHour.TryGetValue(h, out var bucket);
+                string tip = useRequestMetric
+                    ? $"{label} · {bucket.Reqs} 次请求"
+                    : $"{label} · {FormatCompactCount(bucket.Tokens)} Token ({bucket.Reqs} 次)";
+                pts.Add(new GravityBox.App.Controls.TrendPoint(label, bucket.Val, tip));
+            }
+        }
+
+        return pts;
     }
 
     public static List<ParsedQuotaBar> ExtractQuotaBars(JsonObject? source)

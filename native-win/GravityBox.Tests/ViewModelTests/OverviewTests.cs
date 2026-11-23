@@ -155,9 +155,17 @@ public sealed class OverviewTests : IDisposable
         Assert.Equal("$0.95", vm.TodayCostText);
         Assert.Equal("42", vm.TodayRequestsText);
         Assert.Equal(2, vm.QuotaBars.Count);
-        Assert.Single(vm.TrendPoints);
+        Assert.Equal(24, vm.TrendPoints.Count);
+        Assert.Equal("14时", vm.TrendPoints[14].Label);
+        Assert.Equal(12345, vm.TrendPoints[14].Value);
+        Assert.Contains("峰值 14时", vm.TrendBadgeText);
         Assert.Single(vm.ActiveModels);
         Assert.Equal("gemini-3.8-pro", vm.ActiveModels[0].ModelName);
+
+        vm.SyncLiveStatus("debug-port-missing");
+        Assert.True(vm.DebugPortMissing);
+        vm.SyncLiveStatus("connected");
+        Assert.False(vm.DebugPortMissing);
     }
 
     private sealed class CanonicalOverviewBridge : IBackendBridge
@@ -211,7 +219,7 @@ public sealed class OverviewTests : IDisposable
                         ["totalRequestCount"] = 600,
                         ["todayHourly"] = new JsonArray
                         {
-                            new JsonObject { ["hour"] = 14, ["total_tokens"] = 12345, ["request_count"] = 42 },
+                            new JsonObject { ["hour"] = "2026-11-23 14:00", ["total_tokens"] = 12345, ["request_count"] = 42 },
                         },
                         ["todayByModel"] = new JsonArray
                         {

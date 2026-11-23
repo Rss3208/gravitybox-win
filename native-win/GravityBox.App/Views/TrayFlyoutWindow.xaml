@@ -3,8 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:GravityBox.App.Controls"
         Width="424"
-        SizeToContent="Height"
-        MaxHeight="600"
+        Height="540"
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
@@ -20,11 +19,12 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <!-- Top Header & Segmented Tabs -->
+            <!-- Top Header & 3 Segmented Tabs -->
             <Grid Grid.Row="0" Margin="0,0,0,10">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -48,16 +48,19 @@
                         HorizontalAlignment="Center">
                     <StackPanel Orientation="Horizontal">
                         <RadioButton Content="用量"
+                                     GroupName="FlyoutMainTabs"
                                      Style="{StaticResource SegmentedTabRadioStyle}"
                                      IsChecked="{Binding SelectedTab, Converter={StaticResource EqualsParamConverter}, ConverterParameter=0, Mode=OneWay}"
                                      Command="{Binding SelectTabCommand}"
                                      CommandParameter="0" />
                         <RadioButton Content="配额"
+                                     GroupName="FlyoutMainTabs"
                                      Style="{StaticResource SegmentedTabRadioStyle}"
                                      IsChecked="{Binding SelectedTab, Converter={StaticResource EqualsParamConverter}, ConverterParameter=1, Mode=OneWay}"
                                      Command="{Binding SelectTabCommand}"
                                      CommandParameter="1" />
                         <RadioButton Content="账号"
+                                     GroupName="FlyoutMainTabs"
                                      Style="{StaticResource SegmentedTabRadioStyle}"
                                      IsChecked="{Binding SelectedTab, Converter={StaticResource EqualsParamConverter}, ConverterParameter=2, Mode=OneWay}"
                                      Command="{Binding SelectTabCommand}"
@@ -69,6 +72,7 @@
                         Content="↻"
                         Style="{StaticResource SecondaryButtonStyle}"
                         Padding="8,4"
+                        ToolTip="刷新数据"
                         Command="{Binding RefreshCommand}" />
             </Grid>
 
@@ -77,7 +81,7 @@
                     Background="{DynamicResource WarningSoftBrush}"
                     CornerRadius="10"
                     Padding="10,8"
-                    Margin="0,0,0,10"
+                    Margin="0,0,0,8"
                     Visibility="{Binding DebugPortMissing, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}">
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -97,50 +101,250 @@
                 </Grid>
             </Border>
 
-            <!-- Content Body -->
-            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" MaxHeight="380">
-                <StackPanel>
-                    <!-- Summary Card -->
-                    <Border Style="{StaticResource CardContainerStyle}" Margin="0,0,0,8">
-                        <Grid>
+            <!-- Error Banner -->
+            <Border Grid.Row="2"
+                    Background="{DynamicResource DangerSoftBrush}"
+                    CornerRadius="8"
+                    Padding="10,6"
+                    Margin="0,0,0,8"
+                    Visibility="{Binding ErrorBanner, Converter={StaticResource StringNotEmptyToVisibilityConverter}, FallbackValue=Collapsed}">
+                <TextBlock Text="{Binding ErrorBanner}" Foreground="{DynamicResource DangerTextBrush}" FontSize="11.5" TextWrapping="Wrap" />
+            </Border>
+
+            <!-- Tab-Scoped Scrollable Body -->
+            <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto">
+                <Grid>
+                    <!-- TAB 0: 用量 -->
+                    <StackPanel Visibility="{Binding SelectedTab, Converter={StaticResource EqualsVisibilityConverter}, ConverterParameter=0, FallbackValue=Visible}">
+                        <!-- Period + Dimension Toolbar -->
+                        <Grid Margin="0,0,0,8">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Background="{DynamicResource SubCardBrush}" CornerRadius="8" Padding="2" HorizontalAlignment="Left">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton Content="今日" GroupName="FlyoutPeriod" Style="{StaticResource SegmentedTabRadioStyle}" Padding="8,4" FontSize="11.5"
+                                                 IsChecked="{Binding UsagePeriod, Converter={StaticResource EqualsParamConverter}, ConverterParameter=0, Mode=OneWay}"
+                                                 Command="{Binding SelectUsagePeriodCommand}" CommandParameter="0" />
+                                    <RadioButton Content="7 天" GroupName="FlyoutPeriod" Style="{StaticResource SegmentedTabRadioStyle}" Padding="8,4" FontSize="11.5"
+                                                 IsChecked="{Binding UsagePeriod, Converter={StaticResource EqualsParamConverter}, ConverterParameter=1, Mode=OneWay}"
+                                                 Command="{Binding SelectUsagePeriodCommand}" CommandParameter="1" />
+                                    <RadioButton Content="30 天" GroupName="FlyoutPeriod" Style="{StaticResource SegmentedTabRadioStyle}" Padding="8,4" FontSize="11.5"
+                                                 IsChecked="{Binding UsagePeriod, Converter={StaticResource EqualsParamConverter}, ConverterParameter=2, Mode=OneWay}"
+                                                 Command="{Binding SelectUsagePeriodCommand}" CommandParameter="2" />
+                                    <RadioButton Content="全部" GroupName="FlyoutPeriod" Style="{StaticResource SegmentedTabRadioStyle}" Padding="8,4" FontSize="11.5"
+                                                 IsChecked="{Binding UsagePeriod, Converter={StaticResource EqualsParamConverter}, ConverterParameter=3, Mode=OneWay}"
+                                                 Command="{Binding SelectUsagePeriodCommand}" CommandParameter="3" />
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Column="1" Background="{DynamicResource SubCardBrush}" CornerRadius="8" Padding="2">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton Content="Token" GroupName="FlyoutMetric" Style="{StaticResource SegmentedTabRadioStyle}" Padding="7,4" FontSize="11"
+                                                 IsChecked="{Binding TrendMetric, Converter={StaticResource EqualsParamConverter}, ConverterParameter=tokens, Mode=OneWay}"
+                                                 Command="{Binding SelectTrendMetricCommand}" CommandParameter="tokens" />
+                                    <RadioButton Content="请求" GroupName="FlyoutMetric" Style="{StaticResource SegmentedTabRadioStyle}" Padding="7,4" FontSize="11"
+                                                 IsChecked="{Binding TrendMetric, Converter={StaticResource EqualsParamConverter}, ConverterParameter=requests, Mode=OneWay}"
+                                                 Command="{Binding SelectTrendMetricCommand}" CommandParameter="requests" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+                        <!-- 4 KPI Grid -->
+                        <Grid Margin="0,0,0,8">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="6" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="6" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Text="今日 Token" Style="{StaticResource SecondaryLabelStyle}" />
-                                <TextBlock Text="{Binding TodayTokensText}" Style="{StaticResource TabularTextStyle}" FontSize="16" FontWeight="SemiBold" Margin="0,2,0,0" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="1">
-                                <TextBlock Text="请求数" Style="{StaticResource SecondaryLabelStyle}" />
-                                <TextBlock Text="{Binding TodayRequestsText}" Style="{StaticResource TabularTextStyle}" FontSize="16" FontWeight="SemiBold" Margin="0,2,0,0" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="等效费用" Style="{StaticResource SecondaryLabelStyle}" />
-                                <TextBlock Text="{Binding TodayCostText}" Style="{StaticResource TabularTextStyle}" FontSize="16" FontWeight="SemiBold" Margin="0,2,0,0" />
-                            </StackPanel>
+                            <Border Grid.Row="0" Grid.Column="0" Style="{StaticResource CardContainerStyle}" Padding="10">
+                                <StackPanel>
+                                    <TextBlock Text="Token 用量" Style="{StaticResource SecondaryLabelStyle}" FontSize="11" />
+                                    <TextBlock Text="{Binding TodayTokensText}" Style="{StaticResource TabularTextStyle}" FontSize="16" FontWeight="SemiBold" Margin="0,2,0,0" />
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Row="0" Grid.Column="2" Style="{StaticResource CardContainerStyle}" Padding="10">
+                                <StackPanel>
+                                    <TextBlock Text="API 费用估算" Style="{StaticResource SecondaryLabelStyle}" FontSize="11" />
+                                    <TextBlock Text="{Binding TodayCostText}" Style="{StaticResource TabularTextStyle}" FontSize="16" FontWeight="SemiBold" Margin="0,2,0,0" />
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Row="2" Grid.Column="0" Style="{StaticResource CardContainerStyle}" Padding="10">
+                                <StackPanel>
+                                    <TextBlock Text="请求数" Style="{StaticResource SecondaryLabelStyle}" FontSize="11" />
+                                    <TextBlock Text="{Binding TodayRequestsText}" Style="{StaticResource TabularTextStyle}" FontSize="15" FontWeight="SemiBold" Margin="0,2,0,0" />
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Row="2" Grid.Column="2" Style="{StaticResource CardContainerStyle}" Padding="10">
+                                <StackPanel>
+                                    <TextBlock Text="缓存命中率" Style="{StaticResource SecondaryLabelStyle}" FontSize="11" />
+                                    <TextBlock Text="{Binding CacheHitRateText}" Style="{StaticResource TabularTextStyle}" FontSize="15" FontWeight="SemiBold" Margin="0,2,0,0" />
+                                </StackPanel>
+                            </Border>
                         </Grid>
-                    </Border>
 
-                    <!-- Quota List -->
-                    <Border Style="{StaticResource CardContainerStyle}" Margin="0,0,0,8">
-                        <ItemsControl ItemsSource="{Binding QuotaRows}">
+                        <!-- Trend Chart Card -->
+                        <Border Style="{StaticResource CardContainerStyle}" Padding="12" Margin="0,0,0,8">
+                            <StackPanel>
+                                <TextBlock Text="{Binding PeriodTrendTitle}" Style="{StaticResource CardTitleStyle}" FontSize="12.5" Margin="0,0,0,6" />
+                                <controls:UsageTrendChart Height="105" Points="{Binding TrendPoints}" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Top Models Breakdown -->
+                        <Border Style="{StaticResource CardContainerStyle}" Padding="12">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="模型用量" Style="{StaticResource CardTitleStyle}" FontSize="12.5" />
+                                    <Button Grid.Column="1" Content="详细报表 ↗" Style="{StaticResource SecondaryButtonStyle}" Padding="8,2" FontSize="11"
+                                            Command="{Binding OpenMainPageCommand}" CommandParameter="2" />
+                                </Grid>
+                                <TextBlock Text="当前时间范围暂无模型调用记录" Style="{StaticResource SecondaryLabelStyle}" FontSize="11.5"
+                                           Visibility="{Binding HasTopModels, Converter={StaticResource InverseBooleanToVisibilityConverter}, FallbackValue=Collapsed}" />
+                                <ItemsControl ItemsSource="{Binding TopModels}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,3">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{Binding ModelName}" FontSize="11.5" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" Margin="0,0,8,0" />
+                                                <TextBlock Grid.Column="1" Text="{Binding TokensText}" Style="{StaticResource TabularTextStyle}" FontSize="11.5" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,10,0" />
+                                                <TextBlock Grid.Column="2" Text="{Binding CostText}" Style="{StaticResource TabularTextStyle}" FontSize="11.5" FontWeight="SemiBold" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- TAB 1: 配额 -->
+                    <StackPanel Visibility="{Binding SelectedTab, Converter={StaticResource EqualsVisibilityConverter}, ConverterParameter=1, FallbackValue=Collapsed}">
+                        <Border Style="{StaticResource CardContainerStyle}" Padding="12" Margin="0,0,0,8">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding ActiveAccountName}" Style="{StaticResource CardTitleStyle}" FontSize="14" />
+                                        <Border Style="{StaticResource PillBadgeStyle}" Margin="6,0,0,0"
+                                                Visibility="{Binding ActiveAccountTier, Converter={StaticResource StringNotEmptyToVisibilityConverter}, FallbackValue=Collapsed}">
+                                            <TextBlock Text="{Binding ActiveAccountTier}" FontSize="10.5" FontWeight="SemiBold" Foreground="{DynamicResource AccentBlueBrush}" />
+                                        </Border>
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding ActiveAccountEmail}" Style="{StaticResource SecondaryLabelStyle}" FontSize="11.5" Margin="0,2,0,0"
+                                               Visibility="{Binding ActiveAccountEmail, Converter={StaticResource StringNotEmptyToVisibilityConverter}, FallbackValue=Collapsed}" />
+                                    <TextBlock Text="{Binding QuotaUpdatedText}" Style="{StaticResource SecondaryLabelStyle}" FontSize="11" Margin="0,2,0,0"
+                                               Visibility="{Binding QuotaUpdatedText, Converter={StaticResource StringNotEmptyToVisibilityConverter}, FallbackValue=Collapsed}" />
+                                </StackPanel>
+                                <Button Grid.Column="1" Content="刷新配额" Style="{StaticResource SecondaryButtonStyle}" Padding="10,4" FontSize="11.5" VerticalAlignment="Center"
+                                        Command="{Binding RefreshActiveQuotaCommand}" />
+                            </Grid>
+                        </Border>
+
+                        <Border Style="{StaticResource CardContainerStyle}" Padding="12">
+                            <StackPanel>
+                                <TextBlock Text="暂无可用配额窗口，请确认 Antigravity 已登录并点击刷新"
+                                           Style="{StaticResource SecondaryLabelStyle}"
+                                           TextWrapping="Wrap"
+                                           Visibility="{Binding HasQuotaRows, Converter={StaticResource InverseBooleanToVisibilityConverter}, FallbackValue=Collapsed}" />
+                                <ItemsControl ItemsSource="{Binding QuotaRows}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <controls:QuotaMeterRow Title="{Binding Title}"
+                                                                    Percentage="{Binding Percentage}"
+                                                                    RemainingText="{Binding RemainingText}"
+                                                                    ResetText="{Binding ResetText}" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- TAB 2: 账号 -->
+                    <StackPanel Visibility="{Binding SelectedTab, Converter={StaticResource EqualsVisibilityConverter}, ConverterParameter=2, FallbackValue=Collapsed}">
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="已保存账号" Style="{StaticResource CardTitleStyle}" FontSize="13" VerticalAlignment="Center" />
+                                <Border Style="{StaticResource PillBadgeStyle}" Margin="8,0,0,0">
+                                    <TextBlock Text="{Binding AccountsCountText}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                </Border>
+                            </StackPanel>
+                            <Button Grid.Column="1" Content="保存当前账号" Style="{StaticResource SecondaryButtonStyle}" Padding="10,4" FontSize="11.5"
+                                    Command="{Binding SaveCurrentAccountCommand}" />
+                        </Grid>
+
+                        <Border Style="{StaticResource CardContainerStyle}" Padding="14"
+                                Visibility="{Binding HasAccounts, Converter={StaticResource InverseBooleanToVisibilityConverter}, FallbackValue=Collapsed}">
+                            <StackPanel>
+                                <TextBlock Text="暂无已保存账号" Style="{StaticResource CardTitleStyle}" FontSize="13.5" />
+                                <TextBlock Text="可点击右上角「保存当前账号」一键保存 Antigravity 登录状态，或打开主界面「账号」页导入备用账号。"
+                                           Style="{StaticResource SecondaryLabelStyle}" TextWrapping="Wrap" Margin="0,4,0,10" />
+                                <Button Content="前往账号页添加 ↗" Style="{StaticResource PrimaryButtonStyle}" HorizontalAlignment="Left"
+                                        Command="{Binding OpenMainPageCommand}" CommandParameter="1" />
+                            </StackPanel>
+                        </Border>
+
+                        <ItemsControl ItemsSource="{Binding Accounts}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <controls:QuotaMeterRow Title="{Binding Title}"
-                                                            Percentage="{Binding Percentage}"
-                                                            RemainingText="{Binding RemainingText}"
-                                                            ResetText="{Binding ResetText}" />
+                                    <Border Style="{StaticResource CardContainerStyle}" Padding="12" Margin="0,0,0,8">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                    <Border Style="{StaticResource PillBadgeStyle}" Margin="6,0,0,0"
+                                                            Visibility="{Binding Tier, Converter={StaticResource StringNotEmptyToVisibilityConverter}, FallbackValue=Collapsed}">
+                                                        <TextBlock Text="{Binding Tier}" FontSize="10.5" FontWeight="SemiBold" Foreground="{DynamicResource AccentBlueBrush}" />
+                                                    </Border>
+                                                    <Border Background="{DynamicResource SuccessSoftBrush}" CornerRadius="999" Padding="6,2" Margin="6,0,0,0"
+                                                            Visibility="{Binding IsActive, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}">
+                                                        <TextBlock Text="当前" FontSize="10.5" FontWeight="SemiBold" Foreground="{DynamicResource SuccessBrush}" />
+                                                    </Border>
+                                                </StackPanel>
+                                                <TextBlock Text="{Binding SummarySubtitle}" Style="{StaticResource SecondaryLabelStyle}" FontSize="11" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding FiveHourText}" Style="{StaticResource TabularTextStyle}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                                <Button Content="切换" Style="{StaticResource PrimaryButtonStyle}" Padding="10,4" FontSize="11.5"
+                                                        Visibility="{Binding IsActive, Converter={StaticResource InverseBooleanToVisibilityConverter}, FallbackValue=Collapsed}"
+                                                        Command="{Binding DataContext.SwitchAccountCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        CommandParameter="{Binding Id}" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
-                    </Border>
-                </StackPanel>
+                    </StackPanel>
+                </Grid>
             </ScrollViewer>
 
             <!-- Bottom Actions -->
-            <Grid Grid.Row="3" Margin="0,10,0,0">
+            <Grid Grid.Row="4" Margin="0,10,0,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="8" />

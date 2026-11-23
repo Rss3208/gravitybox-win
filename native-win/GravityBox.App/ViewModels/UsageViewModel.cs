@@ -372,26 +372,7 @@ public sealed partial class UsageViewModel : ObservableObject
             var hourly = res["todayHourly"]?.AsArray()
                 ?? periodNode["todayHourly"]?.AsArray()
                 ?? periodNode["hourly"]?.AsArray();
-            if (hourly != null)
-            {
-                foreach (var hNode in hourly)
-                {
-                    var obj = hNode?.AsObject();
-                    if (obj == null) continue;
-                    string label = obj["label"].AsString() ?? string.Empty;
-                    if (string.IsNullOrEmpty(label))
-                    {
-                        long hour = obj["hour"].AsInt64(-1);
-                        label = hour >= 0 ? $"{hour:00}时" : string.Empty;
-                    }
-                    double val = obj["total_tokens"].AsNullableDouble()
-                        ?? obj["totalTokens"].AsNullableDouble()
-                        ?? obj["tokens"].AsDouble();
-                    long reqs = obj["request_count"].AsInt64(obj["requestCount"].AsInt64(0));
-                    string tip = $"{label} · {QuotaFormatting.FormatCompactCount((long)val)} Token ({reqs} 次)";
-                    pts.Add(new TrendPoint(label, val, tip));
-                }
-            }
+            pts = QuotaFormatting.BuildHourlyTrendPoints(hourly, padFull24Hours: true);
         }
         else
         {

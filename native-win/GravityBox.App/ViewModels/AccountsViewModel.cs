@@ -357,7 +357,7 @@ public sealed partial class AccountsViewModel : ObservableObject
         try
         {
             var preflight = await _bridge.SendAsync("account_switch_preflight", cancellationToken: cancellationToken).ConfigureAwait(false);
-            if (preflight["hasRunningTask"].AsBool() || preflight["safe"].AsBool() == false)
+            if (preflight["hasRunningTask"].AsBool() || !preflight["safe"].AsBool(true))
             {
                 string reason = preflight["taskReason"].AsString() ?? "Antigravity 正在执行任务，无法切换账号";
                 UiDispatch.Run(() => ErrorBanner = reason);

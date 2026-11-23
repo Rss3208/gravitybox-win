@@ -14,6 +14,15 @@
                 <Button Grid.Column="1" Content="刷新" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding RefreshCommand}" />
             </Grid>
 
+            <!-- Status / Error Toast -->
+            <Border Background="{DynamicResource AccentBlueSoftBrush}"
+                    CornerRadius="12"
+                    Padding="12,8"
+                    Margin="0,0,0,12"
+                    Visibility="{Binding StatusToast, Converter={StaticResource StringNotEmptyToVisibilityConverter}, FallbackValue=Collapsed}">
+                <TextBlock Text="{Binding StatusToast}" Foreground="{DynamicResource AccentBlueBrush}" FontSize="12.5" TextWrapping="Wrap" />
+            </Border>
+
             <!-- Debug port missing banner -->
             <Border Background="{DynamicResource WarningSoftBrush}"
                     CornerRadius="12"
@@ -25,8 +34,14 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="Antigravity 未开启调试端口，热汉化与对话状态栏暂未连接" Foreground="{DynamicResource WarningTextBrush}" VerticalAlignment="Center" />
-                    <Button Grid.Column="1" Content="安全重启以连接" Style="{StaticResource PrimaryButtonStyle}" Command="{Binding SafeRelaunchCommand}" />
+                    <StackPanel Grid.Column="0" Margin="0,0,12,0" VerticalAlignment="Center">
+                        <TextBlock Text="Antigravity 先于调试端口启动，暂无法直连热汉化与 HUD" FontWeight="SemiBold" Foreground="{DynamicResource WarningTextBrush}" />
+                        <TextBlock Text="因官方进程启动时未带调试参数，请点击右侧安全重启以立即接入；开启下方无感快捷方式后，后续打开即可自动直连。"
+                                   Style="{StaticResource SecondaryLabelStyle}"
+                                   TextWrapping="Wrap"
+                                   Margin="0,2,0,0" />
+                    </StackPanel>
+                    <Button Grid.Column="1" Content="安全重启以连接" Style="{StaticResource PrimaryButtonStyle}" VerticalAlignment="Center" Command="{Binding SafeRelaunchCommand}" />
                 </Grid>
             </Border>
 

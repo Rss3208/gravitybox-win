@@ -31,12 +31,19 @@ public sealed partial class OverviewViewModel : ObservableObject
 
     private string _lastDashboardFingerprint = string.Empty;
     private DateTimeOffset _lastDashboardRefreshAt = DateTimeOffset.MinValue;
+    private string _lastKnownStatusMode = string.Empty;
 
     [ObservableProperty]
     private bool _isLoading;
 
     [ObservableProperty]
+    private bool _isRelaunching;
+
+    [ObservableProperty]
     private bool _debugPortMissing;
+
+    [ObservableProperty]
+    private string? _statusToast;
 
     [ObservableProperty]
     private bool _showShortcutOnboardingCard;
@@ -165,11 +172,18 @@ public sealed partial class OverviewViewModel : ObservableObject
     {
         try
         {
-            await _bridge.SendAsync(
+            var res = await _bridge.SendAsync(
                 "shortcut_apply",
                 new JsonObject { ["confirmed"] = true },
                 cancellationToken: cancellationToken).ConfigureAwait(false);
-            UiDispatch.Run(() => ShowShortcutOnboardingCard = false);
+            int updatedCount = res["updated"]?.AsArray()?.Count ?? 0;
+            UiDispatch.Run(() =>
+            {
+                ShowShortcutOnboardingCard = false;
+                StatusToast = updatedCount > 0
+                    ? $"已为 {updatedCount} 个官方快捷方式开启无感启动！后续无论先启动哪一方，从桌面 / 开始菜单 / 任务栏打开 Antigravity 均会直连。"
+                    : "快捷方式已处于无感启动状态。";
+            });
         }
         catch (Exception ex)
         {
@@ -187,6 +201,13 @@ public sealed partial class OverviewViewModel : ObservableObject
     [RelayCommand]
     public async Task SafeRelaunchAsync(CancellationToken cancellationToken = default)
     {
+        if (IsRelaunching) return;
+        UiDispatch.Run(() =>
+        {
+            IsRelaunching = true;
+            ErrorBanner = null;
+            StatusToast = "正在安全请求 Antigravity 退出并带调试端口重启，请稍候…";
+        });
         try
         {
             var info = await _bridge.SendAsync("platform_info", cancellationToken: cancellationToken).ConfigureAwait(false);
@@ -195,16 +216,57 @@ public sealed partial class OverviewViewModel : ObservableObject
             var res = await _lifecycle.SafeRelaunchAsync(exe, profile, cancellationToken).ConfigureAwait(false);
             if (!res.Ok)
             {
-                UiDispatch.Run(() => ErrorBanner = res.Message);
+                UiDispatch.Run(() =>
+                {
+                    StatusToast = null;
+                    ErrorBanner = res.Message;
+                });
             }
             else
             {
+                UiDispatch.Run(() =>
+                {
+                    DebugPortMissing = false;
+                    StatusToast = "Antigravity 已携带调试端口重启，正在挂载热汉化与 HUD…";
+                });
+                await Task.Delay(800, cancellationToken).ConfigureAwait(false);
                 await RefreshAsync(force: true, cancellationToken: cancellationToken).ConfigureAwait(false);
             }
         }
         catch (Exception ex)
         {
-            UiDispatch.Run(() => ErrorBanner = ex.Message);
+            UiDispatch.Run(() =>
+            {
+                StatusToast = null;
+                ErrorBanner = ex.Message;
+            });
+        }
+        finally
+        {
+            UiDispatch.Run(() => IsRelaunching = false);
+        }
+    }
+
+    public void SyncLiveStatus(string mode)
+    {
+        if (string.IsNullOrWhiteSpace(mode)) return;
+        string prev = _lastKnownStatusMode;
+        if (prev == mode) return;
+        _lastKnownStatusMode = mode;
+        bool missing = mode == "debug-port-missing";
+
+        UiDispatch.Run(() =>
+        {
+            DebugPortMissing = missing;
+            if (!missing && prev == "debug-port-missing")
+            {
+                StatusToast = "已直连 Antigravity，热汉化与 HUD 已就绪";
+            }
+        });
+
+        if (prev == "debug-port-missing" && mode is "connected" or "adaptive")
+        {
+            _ = RefreshAsync(force: true);
         }
     }
 
@@ -213,6 +275,7 @@ public sealed partial class OverviewViewModel : ObservableObject
         var st = res["status"]?.AsObject();
         if (st == null) return;
         string mode = st["mode"].AsString() ?? "waiting";
+        _lastKnownStatusMode = mode;
         string email = st["activeAccountEmail"].AsString()
             ?? st["liveAccountEmail"].AsString()
             ?? string.Empty;
@@ -299,27 +362,10 @@ public sealed partial class OverviewViewModel : ObservableObject
 
             var hourly = usage["todayHourly"]?.AsArray()
                 ?? today?["hourly"]?.AsArray();
-            if (hourly != null && hourly.Count > 0)
+            trendPts = QuotaFormatting.BuildHourlyTrendPoints(hourly, padFull24Hours: true);
+            if (trendPts.Count > 0)
             {
-                TrendPoint? peak = null;
-                foreach (var h in hourly)
-                {
-                    var obj = h?.AsObject();
-                    if (obj == null) continue;
-                    string label = obj["label"].AsString() ?? string.Empty;
-                    if (string.IsNullOrEmpty(label))
-                    {
-                        long hr = obj["hour"].AsInt64(-1);
-                        label = hr >= 0 ? $"{hr:00}时" : string.Empty;
-                    }
-                    double val = obj["total_tokens"].AsNullableDouble()
-                        ?? obj["totalTokens"].AsNullableDouble()
-                        ?? obj["tokens"].AsDouble();
-                    string tip = $"{label} · {QuotaFormatting.FormatCompactCount((long)val)} Token";
-                    var pt = new TrendPoint(label, val, tip);
-                    trendPts.Add(pt);
-                    if (peak == null || val > peak.Value) peak = pt;
-                }
+                var peak = trendPts.OrderByDescending(p => p.Value).FirstOrDefault();
                 if (peak != null && peak.Value > 0)
                 {
                     trendBadge = $"峰值 {peak.Label} · {QuotaFormatting.FormatCompactCount((long)peak.Value)}";
