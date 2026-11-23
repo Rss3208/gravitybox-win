@@ -51,7 +51,7 @@
 
 ## Overview
 
-**GravityBox for Windows** (`GravityBox v1.1.3`) is a lightweight, native Windows 10 / 11 (`x64`) companion for the official stable release of `Antigravity.exe`. Release packages bundle self-contained `.NET 8` and `Node 22` runtimes with zero prerequisites and communicate strictly over loopback CDP, per-user Named Pipes, and read-only SQLite snapshots—**never unpacking, patching, or re-signing the official Antigravity binaries**.
+**GravityBox for Windows** (`GravityBox v1.1.4`) is a lightweight, native Windows 10 / 11 (`x64`) companion for the official stable release of `Antigravity.exe`. Release packages bundle self-contained `.NET 8` and `Node 22` runtimes with zero prerequisites and communicate strictly over loopback CDP, per-user Named Pipes, and read-only SQLite snapshots—**never unpacking, patching, or re-signing the official Antigravity binaries**.
 
 | Capability | What It Solves |
 | :--- | :--- |
@@ -67,8 +67,8 @@
 ## Quick Start
 
 1. **Download & Install**: Get the latest Windows build from [GitHub Releases](https://github.com/Rss3208/gravitybox-win/releases/latest):
-   - **Installer (Recommended)**: `GravityBox-1.1.3-win-x64-setup.exe` (per-user install, no UAC/Admin required; automatically restores shortcuts on uninstall).
-   - **Portable ZIP**: `GravityBox-1.1.3-win-x64-portable.zip` (extract anywhere and launch `GravityBox.exe`).
+   - **Installer (Recommended)**: `GravityBox-1.1.4-win-x64-setup.exe` (per-user install, no UAC/Admin required; automatically restores shortcuts on uninstall).
+   - **Portable ZIP**: `GravityBox-1.1.4-win-x64-portable.zip` (extract anywhere and launch `GravityBox.exe`).
    > **Windows SmartScreen Notice**: Community open-source binaries are not signed with a paid EV certificate. If SmartScreen shows *"Windows protected your PC"*, choose **More info → Run anyway** (you can also verify the `.sha256` checksum below or build directly from source).
 2. **Launch & Connect (Chinese Ready by Default)**: Open **GravityBox**, optionally click **One-Click Enable** on the Overview card to enable seamless Antigravity shortcut launching, or launch directly via **Open Antigravity** in the sidebar. If Antigravity is already running without a debug port, click **Safe Relaunch to Connect** for a clean restart.
 3. **Three Surfaces**: Monitor live sessions in the **In-IDE HUD**, click the **System Tray Flyout** (`Ctrl+1/2/3`) for quick quotas and account switching, or open the **WPF Main Console** (`Ctrl+1`–`5`) for detailed usage analytics, account policies, shortcuts, and storage maintenance.
@@ -218,12 +218,12 @@ All Windows previews below are captured directly from the native `.NET 8 WPF` cl
 - **Verify SHA-256 Checksum in PowerShell**:
   ```powershell
   # Installer
-  Get-FileHash .\GravityBox-1.1.3-win-x64-setup.exe -Algorithm SHA256
-  Get-Content .\GravityBox-1.1.3-win-x64-setup.exe.sha256
+  Get-FileHash .\GravityBox-1.1.4-win-x64-setup.exe -Algorithm SHA256
+  Get-Content .\GravityBox-1.1.4-win-x64-setup.exe.sha256
 
   # Portable ZIP
-  Get-FileHash .\GravityBox-1.1.3-win-x64-portable.zip -Algorithm SHA256
-  Get-Content .\GravityBox-1.1.3-win-x64-portable.zip.sha256
+  Get-FileHash .\GravityBox-1.1.4-win-x64-portable.zip -Algorithm SHA256
+  Get-Content .\GravityBox-1.1.4-win-x64-portable.zip.sha256
   ```
 - **Non-Destructive Upgrades & In-App Updates**: Accounts, usage ledgers, custom dictionary overrides, shortcut backups, and cleanup restore points reside in `%LOCALAPPDATA%\GravityBox`. In-app update checks default to Off and query [`Rss3208/gravitybox-win`](https://github.com/Rss3208/gravitybox-win/releases) with strict `.sha256` sidecar verification.
 - **Clean Uninstall**: Uninstalling via Windows *Settings → Apps* automatically runs `GravityBox.WinHelper.exe --restore-shortcuts` to restore original Antigravity shortcuts. Optionally delete `%LOCALAPPDATA%\GravityBox` to wipe local state.

@@ -1,6 +1,6 @@
 ; GravityBox for Windows Inno Setup Script (Per-User, No UAC required)
 #ifndef AppVersion
-  #define AppVersion "1.1.3"
+  #define AppVersion "1.1.4"
 #endif
 #ifndef StageDir
   #define StageDir "..\..\build\win-stage\GravityBox"

@@ -6,6 +6,19 @@
 
 ## [Unreleased]
 
+## [1.1.4] - 2026-11-23
+
+### Added
+- **总览与用量深层契约对齐与细节增强 (`native-win/GravityBox.App`)**：
+  - 「用量与费用」页全面对齐 `usage_summary` 真实 IPC 返回结构（`byModel` / `models`、`todayHourly` / `dailyTrends`、`requestCount`、`estimatedUsd`、`priced`、`snapshotId`），补齐 4 周期分段高亮切换、24 小时 / 多日趋势曲线、费用环形图中心账单及右侧模型图例、输入/缓存读取/输出 Token 构成、平均每次请求 Token、模型占比列表与一键导出 CSV；
+  - 「总览」页对齐 `dashboard_summary` 聚合架构，展示 2 列多周期配额进度条（Gemini 5 小时/每周、Claude/GPT 5 小时/每周、Gemini 4 Argon 等）、今日及累计费用/Token/请求卡片与今日活跃模型排名，并同步「关于」页实时显示托管宿主版本与本地词典条数；
+  - 「账号」页补全「备用推荐」策略卡片与开关、0 账号时的实时检测登录账号一键保存引导、「收起配额/展开配额」切换、刷新全部配额，以及多形式账号管理弹窗（保存当前账号、JSON 批量导入与安全确认导出、Google OAuth 浏览器登录轮询、Refresh Token 导入）。
+- **系统托盘悬浮窗三页签完整实现 (`TrayFlyoutWindow`)**：完整构建「用量（周期 + Token/请求维度切换 + 趋势图 + Top 模型）」「配额（当前账号全窗口进度条 + 一键刷新）」「账号（列表展示 + 保存当前账号 + 切换入口）」三个独立切换视图并固定为 `424×540` 高清面板。
+
+### Fixed
+- **悬浮窗切号死锁、布局卡顿与 UI 跨线程安全 (`UiDispatch` / `QuotaMeterRow`)**：新增 `UiDispatch.Run` 在全部 ViewModel 中统一将异步 IPC 回调调度回 WPF Dispatcher 线程；拆出 `LoadAllCoreAsync` 修复托盘 `SwitchAccountAsync` 先置 `IsLoading = true` 再重入 `RefreshAsync()` 导致的永久卡死，并为 `QuotaMeterRow` 补充阈值防重排与剩余配额颜色语义；修复 `MaintenanceDialog` 与 `AccountPolicyDialog` 开关标签不渲染以及 `SettingsViewModel` 读取 `buckets.runtimeCache` / `historyLogs` 字节数的契约偏差。
+- **未开启调试端口横幅实时同步与 24 小时趋势补全**：通过 `MainShellViewModel.StatusChanged` 将 `debug-port-missing` 状态实时同步至「总览」页与托盘悬浮窗（并修正悬浮窗「安全重启以连接」误绑为 `OpenAntigravityAsync` 的问题）；在 `QuotaFormatting` 新增 `ParseHourBucket` 与 `BuildHourlyTrendPoints`，正确解析 `"YYYY-MM-DD HH:00"` 字符串小时并补齐 `00时`～`23时` 24 小时曲线与峰值标签。
+
 ## [1.1.3] - 2026-11-22
 
 ### Added
@@ -198,7 +211,8 @@
 ### Fixed
 - **Native UI**：保持菜单栏状态图标在不同翻译开关状态下的不透明度一致（`b9921e8`，已包含于 1.0.0）。
 
-[Unreleased]: https://github.com/Rss3208/gravitybox-win/compare/v1.1.3...HEAD
+[Unreleased]: https://github.com/Rss3208/gravitybox-win/compare/v1.1.4...HEAD
+[1.1.4]: https://github.com/Rss3208/gravitybox-win/compare/v1.1.3...v1.1.4
 [1.1.3]: https://github.com/Rss3208/gravitybox-win/releases/tag/v1.1.3
 [1.1.2]: https://github.com/Enzoo404/gravitybox/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/Enzoo404/gravitybox/compare/v1.1.0...v1.1.1

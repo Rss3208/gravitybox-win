@@ -5,5 +5,5 @@ namespace GravityBox.Win32;
 /// </summary>
 public static class Win32BridgeInfo
 {
-    public const string BridgeVersion = "1.1.3";
+    public const string BridgeVersion = "1.1.4";
 }

@@ -1,6 +1,6 @@
 {
   "name": "gravitybox",
-  "version": "1.1.3",
+  "version": "1.1.4",
   "private": true,
   "type": "module",
   "description": "GravityBox for Windows: Native Windows 10/11 Antigravity Companion (ported from Enzoo404/gravitybox) · 原生 Windows Antigravity 全功能增强伴侣（默认中文汉化）",

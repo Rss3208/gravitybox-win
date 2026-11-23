@@ -1,7 +1,7 @@
 # GravityBox 工程架构总览
 
 ## 核心定位
-GravityBox (`1.1.3`) 是基于上游 [`Enzoo404/gravitybox`](https://github.com/Enzoo404/gravitybox)（MIT）移植并增强的轻量级 Google Antigravity 正式版跨平台伴侣工具箱，面向 **Windows 10/11 (`x64`, `.NET 8 WPF`)** 与 macOS 14+ (Apple Silicon `arm64`, AppKit)，在 Windows 端提供**开箱默认简体中文 + 无感启动快捷方式**、**原生 WPF / Node 后端 / HUD 全链路中英双语界面**、零侵入式 IDE 双语热适配、输入框实时会话遥测 HUD、双周期配额监控、多账号四阶段原子切换（Windows 集成 DPAPI 凭据加密）、只读 SQLite 用量与时序计费核算及非破坏性缓存维护。
+GravityBox (`1.1.4`) 是基于上游 [`Enzoo404/gravitybox`](https://github.com/Enzoo404/gravitybox)（MIT）移植并增强的轻量级 Google Antigravity 正式版跨平台伴侣工具箱，面向 **Windows 10/11 (`x64`, `.NET 8 WPF`)** 与 macOS 14+ (Apple Silicon `arm64`, AppKit)，在 Windows 端提供**开箱默认简体中文 + 无感启动快捷方式**、**原生 WPF / Node 后端 / HUD 全链路中英双语界面**、零侵入式 IDE 双语热适配、输入框实时会话遥测 HUD、双周期配额监控、多账号四阶段原子切换（Windows 集成 DPAPI 凭据加密）、只读 SQLite 用量与时序计费核算及非破坏性缓存维护。
 
 ## 目录与模块分工
 - `native-win/`：Windows 10/11 原生客户端解决方案（`GravityBox.App` .NET 8 WPF 5 页主控制台 + 系统托盘悬浮窗、`GravityBox.Win32` DPAPI/JobObject/快捷方式互操作、`GravityBox.WinHelper` 轻量无感启动与卸载恢复助手、`GravityBox.Tests` xUnit 测试套件）

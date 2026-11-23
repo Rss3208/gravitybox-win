@@ -91,7 +91,7 @@ public partial class App : System.Windows.Application
         };
         _lifecycle = new LifecycleSyncService();
         _lifecycle.AutoExitRequested += () => Dispatcher.Invoke(() => _ = ShutdownAppAsync());
-        _updateManager = new AppUpdateManager("1.1.3");
+        _updateManager = new AppUpdateManager("1.1.4");
 
         var overviewVm = new OverviewViewModel(_bridge, config, l10n, _lifecycle);
         var accountsVm = new AccountsViewModel(_bridge, config, l10n, _lifecycle);

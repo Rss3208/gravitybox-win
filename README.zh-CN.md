@@ -51,7 +51,7 @@
 
 ## 概览与特色
 
-**GravityBox for Windows**（`GravityBox v1.1.3`）专为 Windows 10 / 11 (`x64`) 官方正式版 `Antigravity.exe` 设计。安装包内置自包含 `.NET 8` 与 `Node 22` 运行环境，无需预先安装任何依赖；通过本机回环 CDP、当前用户 SID 级 Named Pipe 与只读 SQLite 事务运行，**不解包、不篡改、不重签名官方应用文件**。
+**GravityBox for Windows**（`GravityBox v1.1.4`）专为 Windows 10 / 11 (`x64`) 官方正式版 `Antigravity.exe` 设计。安装包内置自包含 `.NET 8` 与 `Node 22` 运行环境，无需预先安装任何依赖；通过本机回环 CDP、当前用户 SID 级 Named Pipe 与只读 SQLite 事务运行，**不解包、不篡改、不重签名官方应用文件**。
 
 | 核心能力 | 解决什么问题 |
 | :--- | :--- |
@@ -67,8 +67,8 @@
 ## 快速上手
 
 1. **下载与安装**：前往 [GitHub Releases](https://github.com/Rss3208/gravitybox-win/releases/latest) 下载任一版本：
-   - **安装版（推荐）**：`GravityBox-1.1.3-win-x64-setup.exe`（每用户免管理员权限安装，自动创建开始菜单图标，卸载时自动无损还原 Antigravity 快捷方式）。
-   - **便携版（免安装）**：`GravityBox-1.1.3-win-x64-portable.zip`（解压后直接运行 `GravityBox.exe`）。
+   - **安装版（推荐）**：`GravityBox-1.1.4-win-x64-setup.exe`（每用户免管理员权限安装，自动创建开始菜单图标，卸载时自动无损还原 Antigravity 快捷方式）。
+   - **便携版（免安装）**：`GravityBox-1.1.4-win-x64-portable.zip`（解压后直接运行 `GravityBox.exe`）。
    > **关于 Windows SmartScreen 提示**：开源社区版本未使用付费商业代码签名证书。若首次运行弹出「Windows 已保护你的电脑」，点击 **「更多信息 → 仍要运行」** 即可（也可先核对下方 `.sha256` 校验和或自行从源码构建）。
 2. **启动并连接（默认中文生效）**：打开 **GravityBox** 后已默认启用简体中文。点击总览页 **「一键开启」** 无感启动快捷方式，或直接点击侧栏 **「打开 Antigravity」**。若 Antigravity 已在外部启动但未带调试端口，点击横幅 **「安全重启以连接」** 即可优雅重启挂载。
 3. **三端协作**：写代码时看输入框下方 **HUD**；查额度与快速切号点击右下角 **系统托盘浮窗**（支持 `Ctrl+1/2/3`）；深度账单分析、多账号管理与快捷方式维护使用 **WPF 主控制台**（`Ctrl+1`–`5`）。
@@ -218,12 +218,12 @@ HUD 挂载于每个 Antigravity 对话输入框下方，支持分栏独立状态
 - **PowerShell SHA-256 校验（推荐）**：
   ```powershell
   # 校验安装版
-  Get-FileHash .\GravityBox-1.1.3-win-x64-setup.exe -Algorithm SHA256
-  Get-Content .\GravityBox-1.1.3-win-x64-setup.exe.sha256
+  Get-FileHash .\GravityBox-1.1.4-win-x64-setup.exe -Algorithm SHA256
+  Get-Content .\GravityBox-1.1.4-win-x64-setup.exe.sha256
 
   # 或校验便携版
-  Get-FileHash .\GravityBox-1.1.3-win-x64-portable.zip -Algorithm SHA256
-  Get-Content .\GravityBox-1.1.3-win-x64-portable.zip.sha256
+  Get-FileHash .\GravityBox-1.1.4-win-x64-portable.zip -Algorithm SHA256
+  Get-Content .\GravityBox-1.1.4-win-x64-portable.zip.sha256
   ```
 - **无损升级与自更新**：
   - 所有配置、账号库、用量总账、快捷方式备份与恢复点均保存在 `%LOCALAPPDATA%\GravityBox`。

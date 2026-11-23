@@ -17,7 +17,7 @@ public sealed partial class AboutViewModel : ObservableObject
     private readonly IBackendBridge? _bridge;
 
     [ObservableProperty]
-    private string _versionText = "1.1.3";
+    private string _versionText = "1.1.4";
 
     [ObservableProperty]
     private string _dataDirectory;
